@@ -149,3 +149,11 @@
 - **Torch caution:** PyTorch's CUDA ≥ 12.8 wheels dropped sm_60/sm_70 (P100/V100), hence the cu126 index.
   The cluster torch version may differ from the Mac pin; `setup_env.sh` records the cluster freeze.
 - macOS rsync is openrsync (no --append-verify), so the 27 GB TF3 upload restarts if interrupted unless GNU rsync is installed.
+- **Cluster setup done (2026-10-23):**
+  - `sinfo` facts: gpu partition = 5× V100 (`volta`, gpu002–006) + 1 node with 2× P100 (`pascal`, gpu001), 2-day limit.
+    The A100 nodes in the docs are absent.
+  - PROJ = /home/santosh_lab/shared/dipesh/dental (only `shared/` is writable in the lab dir).
+  - ToothFairy3.zip copied; size verified (29305037433 B). CONTACT zip copied.
+  - Env `dental`: torch 2.14.1+cu126 (same version as the Mac pin), archs include sm_60/sm_70.
+    Freeze in cluster/requirements.cluster.lock.txt (on the cluster).
+  - `short` partition was full at first; an interactive job on `-p nodes --time=01:00:00` started fine.
