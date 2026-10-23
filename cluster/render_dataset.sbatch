@@ -6,13 +6,13 @@
 # Renders go to $PROJ/renders/<name> (lab storage), not to the 50 GB home.
 #SBATCH --job-name=dental-render
 #SBATCH --partition=gpu
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:volta:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=48G
 #SBATCH --time=12:00:00
 #SBATCH --output=logs/%x-%j.out
 set -euo pipefail
-PROJ="${PROJ:?export PROJ=<project folder> before sbatch (see cluster/README.md)}"
+PROJ="${PROJ:-/home/santosh_lab/shared/dipesh/dental}"
 source "$HOME/miniforge3/etc/profile.d/conda.sh"; conda activate dental
 export DENTAL_DATA_ROOT="$PROJ/data_raw"
 cd "$PROJ/code"

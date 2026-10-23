@@ -2,17 +2,18 @@
 
 Docs: https://usdrcg.gitbook.io/docs/lawrence-hpc/submitting-jobs
 
-Facts from the docs (2026-10-23):
+Facts from the docs and from `sinfo` on 2026-10-23:
 - **Scheduler:** Slurm.
 - **Login node:** `lawrence.usd.edu` (Duo 2FA). It is for editing and submitting only; never compute there.
-- **GPUs** (partition `gpu`): GPU001 has 2× P100 16 GB (`--gres=gpu:pascal:1`, add `-B 1:12`);
-  GPU002–006 have 1× V100 32 GB each (`--gres=gpu:volta:1`); GPU007–008 have 1× A100 80 GB each (label: see `discover.sh`).
-- **Storage:** home is 50 GB. The lab directory is 5 TB; the project and data go there. Per-job `/scratch/job_$SLURM_JOB_ID`
+- **GPUs** (partition `gpu`, **max 2 days per job**): gpu002–006 have 1× V100 32 GB each (`--gres=gpu:volta:1`, the scripts' default);
+  gpu001 has 2× P100 16 GB (`--gres=gpu:pascal:1 -B 1:12`). The docs list A100 nodes (gpu007/008), but `sinfo` does not show them.
+- **Storage:** home is 50 GB. The lab directory `/home/santosh_lab` is 5 TB (2.1 TB free); only `shared/` is writable,
+  so **PROJ = /home/santosh_lab/shared/dipesh/dental** (the scripts' default). Per-job `/scratch/job_$SLURM_JOB_ID`
   is 169 GB SSD and is deleted when the job ends. **Nothing is backed up.**
 
 ## Layout on the cluster
 ```
-$PROJ/                 # e.g. <lab dir>/dipesh/dental
+$PROJ/                 # /home/santosh_lab/shared/dipesh/dental
   code/                # this repo (synced from the Mac)
   data_raw/            # ToothFairy3.zip, CONTACTdataset.zip, Zenodo/*.zip  (read-only, as on the Mac)
   renders/             # synthetic datasets (code/data/renders → here)
@@ -21,12 +22,12 @@ $PROJ/                 # e.g. <lab dir>/dipesh/dental
 ```
 
 ## One-time setup
-1. **Cluster (login node):** run `bash discover.sh` (or paste it). It reports the real lab-dir path and the GPU labels.
-2. **Mac:** `export REMOTE_PROJ=<lab dir>/dipesh/dental` then `bash cluster/sync_to_cluster.sh code tf3 small`.
+1. Done: `discover.sh` facts are recorded above.
+2. **Mac:** `bash cluster/sync_to_cluster.sh code tf3 small`.
    ToothFairy3 is 27 GB, so use a wired connection if possible.
 3. **Cluster:**
    ```
-   export PROJ=<lab dir>/dipesh/dental      # add this line to ~/.bashrc
+   export PROJ=/home/santosh_lab/shared/dipesh/dental      # add this line to ~/.bashrc
    srun --pty -p short --cpus-per-task=4 --mem=16G bash
    bash $PROJ/code/cluster/setup_env.sh     # builds conda env "dental"
    exit

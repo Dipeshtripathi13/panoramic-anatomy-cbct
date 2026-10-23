@@ -1,16 +1,16 @@
 #!/bin/bash
 # GPU smoke test (~10 min): checks CUDA works on this GPU type and times 2 volumes × 3 renders.
-#   sbatch cluster/gpu_smoketest.sbatch                       # any GPU
-#   sbatch --gres=gpu:volta:1 cluster/gpu_smoketest.sbatch    # force a V100
+#   sbatch cluster/gpu_smoketest.sbatch                                    # V100 (default)
+#   sbatch --gres=gpu:pascal:1 -B 1:12 cluster/gpu_smoketest.sbatch         # P100 (use half the cores)
 #SBATCH --job-name=dental-smoke
 #SBATCH --partition=gpu
-#SBATCH --gres=gpu:1
+#SBATCH --gres=gpu:volta:1
 #SBATCH --cpus-per-task=8
 #SBATCH --mem=48G
 #SBATCH --time=00:30:00
 #SBATCH --output=logs/%x-%j.out
 set -euo pipefail
-PROJ="${PROJ:?export PROJ=<project folder> before sbatch (see cluster/README.md)}"
+PROJ="${PROJ:-/home/santosh_lab/shared/dipesh/dental}"
 source "$HOME/miniforge3/etc/profile.d/conda.sh"; conda activate dental
 export DENTAL_DATA_ROOT="$PROJ/data_raw"
 cd "$PROJ/code"

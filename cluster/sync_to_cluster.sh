@@ -5,10 +5,9 @@
 #   bash cluster/sync_to_cluster.sh small           # + CONTACT zip (16 MB)
 #   bash cluster/sync_to_cluster.sh dentex          # + Zenodo/DENTEX zips (10 GB)
 # Uses one SSH master connection, so Duo is asked once per run.
-# Set REMOTE_PROJ to the project folder on the cluster (inside the lab dir, see cluster/README.md).
 set -euo pipefail
 USER_AT_HOST="${USER_AT_HOST:-dipesh.tripathi@lawrence.usd.edu}"
-REMOTE_PROJ="${REMOTE_PROJ:?set REMOTE_PROJ, e.g. export REMOTE_PROJ=/home/santosh-lab/dipesh/dental}"
+REMOTE_PROJ="${REMOTE_PROJ:-/home/santosh_lab/shared/dipesh/dental}"   # only shared/ is group-writable
 LOCAL="$(cd "$(dirname "$0")/.." && pwd)"
 CTL="$HOME/.ssh/cm-lawrence-%r@%h:%p"
 SSH="ssh -o ControlMaster=auto -o ControlPath=$CTL -o ControlPersist=2h"
