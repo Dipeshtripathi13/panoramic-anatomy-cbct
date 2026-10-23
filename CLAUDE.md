@@ -23,8 +23,9 @@ All raw data are zips in the repo root; paths in `configs/paths.yaml`; read via 
 (streams members from the zip, decodes in memory).
 - **ToothFairy3** `ToothFairy3.zip`: 532 NIfTI (nnU-Net layout `imagesTr/*_0000.nii.gz`, `labelsTr/*.nii.gz`),
   HU, 0.3 mm iso, 77 classes. Set A = `P` (417), B = `F` (63, full face), C = `S` (52, other scanner).
-  Header affine says LPS but true orientation is **RPI** (brief; conversion script on Ditto site) — convert
-  in memory only. Images stored float64 (~550 MB decoded) → cast immediately. Pulp ID = tooth ID + 100;
+  Header affine says LPS but voxel data are **RPI**. Use `dentalpano.tf3.fix_orientation` (flip i,k → LPS),
+  in memory only. **Do NOT use the official Ditto fix script** (it yields LAI); see LOG.md step 3.
+  TF2 is fully contained in TF3 (Sets A+B) → ignored. Images stored float64 (~550 MB decoded) → cast immediately. Pulp ID = tooth ID + 100;
   103/104 = incisive canals, 105 = lingual canal.
 - **ToothFairy2** `ToothFairy2_Dataset.zip` (.mha, ~110 GB uncompressed — do not extract). Sets A/B overlap
   TF3 → do not double count; prefer TF3 labels.
@@ -50,7 +51,7 @@ DiffDRR optional.
 - Work in phases; stop for review at each checkpoint.
 
 ## First-session plan
-1. Repo setup ✔  2. Data audit → `outputs/data_audit.md` (**Checkpoint 1**)  3. Orientation check (PNG slices,
+1. Repo setup ✔  2. Data audit ✔ → `outputs/data_audit.md` (**Checkpoint 1**)  3. Orientation check ✔ (PNG slices,
 one volume per set)  4. CONTACT loader + overlays (5/group) (**Checkpoint 2**)  5. Simulator v0: PX2Tooth
 projection + SimPX rays, 3 Set B renders with multi-label masks next to real panoramics; list differences
 (**Checkpoint 3**).

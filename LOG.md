@@ -25,3 +25,13 @@
   decoder in `src/dentalpano/contact.py`. Group 2 vs 3 cannot be recovered exactly: mask overlap gives 72/306 vs expected 101/277.
   15 contact cases have no visible mask overlap.
 - DENTEX: 693 + 705 + 634 labelled + 1571 unlabelled train, 50 val (images only). 1 tiny unlabelled image to filter.
+
+### Step 3: orientation check → `outputs/orientation/` (`orientation_check.md`, CSV, 3 PNGs)
+- Anatomical tests on all 532 label volumes: L/R (Left vs Right IAC), A/P (incisors vs pharynx),
+  S/I (mandible rises posteriorly; upper teeth above lower teeth). Runtime ~5 min.
+- **Raw data are RPI** (i→Right, j→Posterior, k→Inferior) in all sets, as the brief says. The header claims LPS.
+- **The official Ditto `fix_orientation.py` is wrong for our purpose.** It flips SimpleITK axes 1,2 (= nibabel i,j), which gives LAI:
+  A/P fails 100% and the teeth S/I test fails 100%. The result is LPS rotated 180°, so it looks plausible but is upside down and front-back swapped.
+- **Decision:** `tf3.fix_orientation` flips i and k → LPS that matches the header. All 532 cases pass every test. Applied in memory only.
+- First S/I test (lower teeth vs IAC centroid) was too weak: the IAC climbs into the ramus, so the margin was ~1–15 voxels. Replaced it.
+- Caveat: L/R relies on label names, since the anatomy is nearly symmetric. The names agree with the "R" in RPI.
