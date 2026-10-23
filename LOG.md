@@ -105,3 +105,14 @@
   - 0.3 mm vs ~0.1 mm pixels, so CONTACT-scale crops are soft.
   - Molar crop centring is still approximate.
   - Single arch curve for both jaws; the upper arch is more buccal.
+
+### Step 7: fixed splits → `splits/` (see `splits/README.md`)
+- TF3: volume-level 70/10/20, stratified by set × metal × third molar. CONTACT: official test kept; val = 15% of official train.
+  CONTACT has no patient IDs, so train/val molars may share a patient.
+- **DENTEX duplicates:** the same radiograph appears under different names across subsets and within them (638 exact groups).
+  Splits are made over duplicate groups.
+  - **First attempt was wrong.** A 64-bit 9×8 dHash at Hamming ≤ 6 linked 15,846 "near-duplicate" pairs into giant groups (test = 1886 images).
+  - Fixed with a 2048-bit 65×32 dHash. Nearest-neighbour distances are cleanly bimodal: 0 (identical) or ≥ 554 (different patients),
+    plus one re-cropped copy at 394 (checked visually). Threshold 400.
+  - The wrong files were deleted and regenerated before any use. TF3 and CONTACT files came out byte-identical; only dentex.json changed.
+- Verified: no duplicate group in two DENTEX pools; no TF3 or CONTACT overlap.
