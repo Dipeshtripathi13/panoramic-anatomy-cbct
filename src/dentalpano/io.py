@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import gzip
 import io
+import os
 import zipfile
 from functools import lru_cache
 from pathlib import Path
@@ -19,8 +20,9 @@ REPO = Path(__file__).resolve().parents[2]
 
 @lru_cache
 def paths() -> dict:
+    """Dataset paths from configs/paths.yaml; $DENTAL_DATA_ROOT overrides `root` (e.g. on the cluster)."""
     cfg = yaml.safe_load((REPO / "configs" / "paths.yaml").read_text())
-    root = Path(cfg["root"])
+    root = Path(os.environ.get("DENTAL_DATA_ROOT", cfg["root"]))
     for key, val in cfg.items():
         if isinstance(val, dict):
             cfg[key] = {k: root / v for k, v in val.items()}

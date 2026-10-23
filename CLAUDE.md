@@ -47,7 +47,9 @@ see LOG.md step 6).
 
 ## Working rules
 - Python 3.11 venv at `.venv` (uv); pinned in `requirements.lock.txt`; package `dentalpano` in `src/` (editable).
-- Machine: Apple M4, 16 GB RAM, MPS only (no CUDA) — plan compute accordingly.
+- Machine: Apple M4, 16 GB RAM, MPS only (no CUDA). Heavy jobs (rendering at scale, training) run on the
+  USD **Lawrence** Slurm cluster (P100/V100/A100), lab = santosh lab — see `cluster/README.md`.
+  `$DENTAL_DATA_ROOT` overrides the data root there. Claude cannot log in (Duo): give the user commands to run.
 - Patient-level splits fixed once in `splits/`, never changed. Fix all seeds. Log each experiment's config + git hash.
 - Ask before any job > ~30 min or any large download.
 - Keep `LOG.md` updated (decisions, problems, results). Outputs go in `outputs/` (git-ignored).

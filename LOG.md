@@ -139,3 +139,13 @@
 - **Reproducibility:** MPS scatter-add order varies, so meanT differs between runs in 0.005% of pixels by one float16 step. Masks are identical.
 - `scripts/render_dataset.py`: v0 nominal + K random variants per volume; resumable; data/renders/<name>/<case>_v<k>.npz (~0.3 MB each).
 - **Timing per render:** Set A ~8 s, Set C ~12 s, Set B ~15–17 s → ~71 min per pass over train+val (427 volumes).
+
+### Step 9: cluster (USD Lawrence) preparation — `cluster/`
+- User has a Lawrence account (santosh lab; miniforge3 already in home). Docs read: Slurm; `gpu` partition with
+  2× P100 16 GB, 5× V100 32 GB, 2× A100 80 GB; home 50 GB, lab dir 5 TB, nothing backed up; per-job /scratch 169 GB.
+- **Code changes:** `$DENTAL_DATA_ROOT` overrides the data root (`io.paths`); `opg.device()` prefers CUDA.
+- **Added:** `cluster/discover.sh`, `cluster/sync_to_cluster.sh` (Mac → cluster rsync; one SSH master so Duo is asked once),
+  `cluster/setup_env.sh` (conda env + torch from the cu126 index), `cluster/gpu_smoketest.sbatch`, `cluster/render_dataset.sbatch`.
+- **Torch caution:** PyTorch's CUDA ≥ 12.8 wheels dropped sm_60/sm_70 (P100/V100), hence the cu126 index.
+  The cluster torch version may differ from the Mac pin; `setup_env.sh` records the cluster freeze.
+- macOS rsync is openrsync (no --append-verify), so the 27 GB TF3 upload restarts if interrupted unless GNU rsync is installed.
