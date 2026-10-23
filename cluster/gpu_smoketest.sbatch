@@ -1,7 +1,7 @@
 #!/bin/bash
 # GPU smoke test (~10 min): checks CUDA works on this GPU type and times 2 volumes × 3 renders.
 #   sbatch cluster/gpu_smoketest.sbatch                                    # V100 (default)
-#   sbatch --gres=gpu:pascal:1 -B 1:12 cluster/gpu_smoketest.sbatch         # P100 (use half the cores)
+#   sbatch --gres=gpu:pascal:1 --cpus-per-task=12 cluster/gpu_smoketest.sbatch   # P100 (half the node)
 #SBATCH --job-name=dental-smoke
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:volta:1

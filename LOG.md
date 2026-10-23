@@ -171,3 +171,5 @@
 - `scripts/qc_renders.py`: contact sheet with image-level DR, masks and FOV; flags renders with no teeth/mandible, little FOV or NaNs.
   Note: in Set B the mandible reaches the bottom of the volume, so the dentate crop removes little of the chin-rest strip.
   → For training, exclude rows below the mandible's lower border + margin from the loss (TODO, training stage).
+- P100 submission: `-B 1:12` (from the docs) fails with "Requested node configuration is not available"; `--cpus-per-task=12` works.
+- 2026-10-23: submitted dr_main (array 1311480_0-3, V100s) and nominal_test (1311485, P100).

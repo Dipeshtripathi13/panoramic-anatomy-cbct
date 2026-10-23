@@ -6,7 +6,7 @@ Facts from the docs and from `sinfo` on 2026-10-23:
 - **Scheduler:** Slurm.
 - **Login node:** `lawrence.usd.edu` (Duo 2FA). It is for editing and submitting only; never compute there.
 - **GPUs** (partition `gpu`, **max 2 days per job**): gpu002–006 have 1× V100 32 GB each (`--gres=gpu:volta:1`, the scripts' default);
-  gpu001 has 2× P100 16 GB (`--gres=gpu:pascal:1 -B 1:12`). The docs list A100 nodes (gpu007/008), but `sinfo` does not show them.
+  gpu001 has 2× P100 16 GB (`--gres=gpu:pascal:1 --cpus-per-task=12`; the docs' `-B 1:12` is rejected together with our scripts' CPU request). The docs list A100 nodes (gpu007/008), but `sinfo` does not show them.
 - **Storage:** home is 50 GB. The lab directory `/home/santosh_lab` is 5 TB (2.1 TB free); only `shared/` is writable,
   so **PROJ = /home/santosh_lab/shared/dipesh/dental** (the scripts' default). Per-job `/scratch/job_$SLURM_JOB_ID`
   is 169 GB SSD and is deleted when the job ends. **Nothing is backed up.**
