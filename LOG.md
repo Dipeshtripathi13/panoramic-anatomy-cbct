@@ -157,3 +157,8 @@
   - Env `dental`: torch 2.14.1+cu126 (same version as the Mac pin), archs include sm_60/sm_70.
     Freeze in cluster/requirements.cluster.lock.txt (on the cluster).
   - `short` partition was full at first; an interactive job on `-p nodes --time=01:00:00` started fine.
+- **V100 smoke test (job 1311473, gpu003):** CUDA works (driver 545 / CUDA 12.3 runs the cu126 build fine). But 6 renders took 2.3 min
+  (~23 s each), slower than the M4 (~14 s). CPU time ≈ wall time, so it was CPU-bound: per-channel `np.isin` over the whole volume
+  (44 channels × 2 passes per render) on slower Skylake cores.
+  **Fix:** channel bits built with one 256-entry lookup table (bit-identical, 3.8 s → 0.34 s); annotated flags from one bincount;
+  `opg.prepare_labels()` caches both per volume across variants. Mac render now ~6.3 s (from ~14 s); the rest is mostly GPU.

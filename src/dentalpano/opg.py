@@ -99,15 +99,26 @@ def mu_volume(img: np.ndarray, cfg: OPGConfig) -> np.ndarray:
 
 def channel_bits(lab: np.ndarray, cfg: OPGConfig) -> tuple[list[np.ndarray], list[str]]:
     """Encode channels as bits of float32 volumes, 23 channels per volume (float32 is exact to 2**24).
-    Depth windows are applied per ray at render time."""
+    One lookup-table pass per volume (labels are uint8). Depth windows are applied per ray at render time."""
     names = list(cfg.channels)
     vols = []
     for c0 in range(0, len(names), 23):
-        bits = np.zeros(lab.shape, np.int32)
+        lut = np.zeros(256, np.int32)
         for b, name in enumerate(names[c0:c0 + 23]):
-            bits |= np.isin(lab, cfg.channels[name][0]).astype(np.int32) << b
-        vols.append(bits.astype(np.float32))
+            for i in cfg.channels[name][0]:
+                lut[i] |= 1 << b
+        vols.append(lut[lab].astype(np.float32))
     return vols, names
+
+
+def prepare_labels(lab: np.ndarray, cfg: OPGConfig) -> dict:
+    """Per-volume label work, reusable across renders of the same volume with the same channels."""
+    bits, names = channel_bits(lab, cfg)
+    present = np.bincount(lab.ravel(), minlength=256) > 0
+    annotated = {n: bool(present[list(cfg.channels[n][0])].any()) for n in names}
+    return {"bits": bits, "names": names, "annotated": annotated,
+            "has_teeth": bool(present[TOOTH_IDS].any()),
+            "z_teeth": float(np.nonzero(np.isin(lab, TOOTH_IDS))[2].mean()) if present[TOOTH_IDS].any() else None}
 
 
 def process(image: np.ndarray, px_mm: float, sigma_mm: float = 12.0, amount: float = 0.85,
@@ -171,7 +182,7 @@ def _to_grid(pts_vox: torch.Tensor, shape: tuple) -> torch.Tensor:
 
 
 def render(img: np.ndarray | None, lab: np.ndarray | None, cfg: OPGConfig | None = None,
-           arch: dict | None = None, mu: np.ndarray | None = None) -> dict:
+           arch: dict | None = None, mu: np.ndarray | None = None, labels: dict | None = None) -> dict:
     """Render a volume (LPS). Pass `mu` directly (e.g. a phantom) instead of `img` if wanted.
 
     Returns image (−log mean T), meanT, masks {channel: bool}, soft masks, geometry, and
@@ -188,13 +199,13 @@ def render(img: np.ndarray | None, lab: np.ndarray | None, cfg: OPGConfig | None
     mu_t = torch.from_numpy(mu)[None, None].to(dev)
     names = []
     if lab is not None:
-        bit_vols, names = channel_bits(lab, cfg)
-        bits_t = [torch.from_numpy(bv)[None, None].to(dev) for bv in bit_vols]
-        del bit_vols
+        labels = labels or prepare_labels(lab, cfg)
+        names = labels["names"]
+        bits_t = [torch.from_numpy(bv)[None, None].to(dev) for bv in labels["bits"]]
     if cfg.z_center_vox is not None:
         zc = cfg.z_center_vox
-    elif lab is not None and np.isin(lab, TOOTH_IDS).any():
-        zc = float(np.nonzero(np.isin(lab, TOOTH_IDS))[2].mean())
+    elif labels is not None and labels["z_teeth"] is not None:
+        zc = labels["z_teeth"]
     else:
         zc = shape[2] / 2
 
@@ -293,7 +304,7 @@ def render(img: np.ndarray | None, lab: np.ndarray | None, cfg: OPGConfig | None
         "masks": {n: soft[b] >= cfg.mask_threshold for b, n in enumerate(names)},
         "soft_masks": {n: soft[b] for b, n in enumerate(names)},
         "fov": fovm,
-        "annotated": {n: bool(np.isin(lab, cfg.channels[n][0]).any()) for n in names} if lab is not None else {},
+        "annotated": labels["annotated"] if labels is not None else {},
         "arch": arch, "geometry": geo, "frame_col": frame_col, "z_center_vox": zc, "slit_cols": W,
         "z_top_mm": z_top, "pixel_mm_at_trough": cfg.column_mm,
     }

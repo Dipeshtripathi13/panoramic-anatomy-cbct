@@ -87,10 +87,12 @@ def main() -> None:
         lab, _ = tf3.load_label(case)
         spine = DR.spine_mask(img, lab)
         arch = fit_arch(lab, SimConfig(column_mm=base.column_mm, arch_extend_mm=base.arch_extend_mm))
+        labels = opg.prepare_labels(lab, base)          # once per volume, shared by all variants
         for k in todo:
             rng = np.random.default_rng(seed_for(args.seed, case, k))
             p = DR.nominal() if k == 0 else DR.sample(rng, enabled)
-            r = opg.render(None, lab, DR.opg_config(p, base), arch=DR.jitter_arch(arch, p), mu=DR.attenuation(img, lab, p, spine))
+            r = opg.render(None, lab, DR.opg_config(p, base), arch=DR.jitter_arch(arch, p), mu=DR.attenuation(img, lab, p, spine),
+                           labels=labels)
             masks = np.stack([r["masks"][c] for c in channels])
             np.savez_compressed(
                 out / f"{case}_v{k}.npz", meanT=r["meanT"].astype(np.float16), fov=r["fov"],
