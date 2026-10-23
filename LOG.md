@@ -35,3 +35,15 @@
 - **Decision:** `tf3.fix_orientation` flips i and k → LPS that matches the header. All 532 cases pass every test. Applied in memory only.
 - First S/I test (lower teeth vs IAC centroid) was too weak: the IAC climbs into the ramus, so the margin was ~1–15 voxels. Replaced it.
 - Caveat: L/R relies on label names, since the anatomy is nearly symmetric. The names agree with the "R" in RPI.
+
+### Step 4: CONTACT loader → `outputs/contact/` (labels.csv, group{1,2,3}.png, contact_without_mask_overlap.png, canal_level_outliers.png)
+- Public release check: Kaggle `tugcetoprak92/contact-dataset` v1 (only version, 17.7 MB, CC BY-NC 4.0) = exactly our zip:
+  ROIs + masks only. The paper (Sci Rep 2024, PMC11794476) describes full panoramics and XML annotations, but these are not public.
+  → Full panoramics would have to be requested from the authors (Tugce Toprak).
+- **Decoder bug found via overlays and fixed.** The masks use 5 gray-level families, not 2:
+  A 42/212 (+127 overlap), B 85/170 (+255), D 51/255 (+153), E 102/204, F 127/255.
+  The first decoder misread D/E/F masks (e.g. train #1414 decoded as ~99% overlap).
+  Now: family = best-supported level pair; molar vs canal decided by shape (canal = thinner band, smaller max distance transform).
+  Canal level is consistent within each family except 3 masks with swapped levels (train 209, 410, test 1000); shape handles them (checked visually).
+- Derived groups: 1100 / 118 / 260 (brief: 1100 / 101 / 277). Still approximate. All E/F masks (48) are non-contact without overlap.
+- 15 contact=1 cases have masks that touch but do not overlap → a radiographic "adjacent" case, not a decoding error.

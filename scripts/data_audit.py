@@ -171,13 +171,14 @@ def main() -> None:
           "features (Obscuration, Deflection, NarrowingRoots, NarrowingCanal, DiscontinuityCanal, CanalDeviation), and binary `Class` (= contact).", "",
           md_table(ct.groupby(["split", "contact"]).size().rename("n").reset_index()), "",
           f"Contact = 1: **{(ct.contact == 1).sum()}**, contact = 0: **{(ct.contact == 0).sum()}** (brief: 1100 / 378 ✔).", "",
-          "Mask encodings (auto-detected per mask): " + ", ".join(f"scheme {k}: {v}" for k, v in ct.scheme.value_counts().items())
-          + " — A: molar 42 / canal 213 / overlap≈128; B: canal 85 / molar 170 / overlap 255.", "",
+          "Mask gray-level families (auto-detected per mask): " + ", ".join(f"{k}: {v}" for k, v in ct.scheme.value_counts().items())
+          + " — A 42/212 (+127 overlap), B 85/170 (+255), D 51/255 (+153), E 102/204, F 127/255. "
+          "Molar vs canal is decided per mask by shape (canal = thin band); see `src/dentalpano/contact.py`.", "",
           f"Groups derived as contact→1, else mask overlap ≥ {contact.MIN_OVERLAP_PX} px → 3, else 2:", "",
           md_table(pd.crosstab(ct.split, ct.group, margins=True).reset_index()), "",
           "Brief expects 1100 / 101 / 277. The 2-vs-3 split **cannot be reproduced exactly** from these masks: "
-          "no overlap-pixel or Obscuration threshold gives 101 (px<100 → 110; Obscuration≤0 → 87). "
-          f"Also {((ct.contact == 1) & ~ct.overlap).sum()} contact cases show (near-)zero mask overlap, mostly scheme A (the canal may be painted over the molar). "
+          "the Obscuration feature does not match either (Obscuration≤0 → 87). "
+          f"Also {((ct.contact == 1) & ~ct.overlap).sum()} contact cases have masks that touch but do not overlap (checked visually). "
           "→ Treat derived groups 2/3 as approximate until we get the official group list."]
 
     # ---------------- DENTEX
