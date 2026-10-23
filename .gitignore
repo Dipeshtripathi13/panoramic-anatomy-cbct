@@ -1,0 +1,21 @@
+# Data (non-commercial licences; never commit)
+*.zip
+Zenodo/
+data/
+*.nii
+*.nii.gz
+*.mha
+*.jpg
+*.png
+!docs/**/*.png
+# Outputs, renders, checkpoints
+outputs/
+*.pt
+*.pth
+*.ckpt
+# Env
+.venv/
+__pycache__/
+*.egg-info/
+.DS_Store
+.ipynb_checkpoints/

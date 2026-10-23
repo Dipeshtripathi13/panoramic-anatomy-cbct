@@ -1,0 +1,15 @@
+# All raw data are read-only. Zips are read in place (never extracted, never moved).
+root: /Users/dipeshtripathi/Desktop/projects/dental
+toothfairy3:
+  zip: ToothFairy3.zip          # imagesTr/*_0000.nii.gz, labelsTr/*.nii.gz, dataset.json
+toothfairy2:
+  zip: ToothFairy2_Dataset.zip  # Dataset112_ToothFairy2/{imagesTr,labelsTr}/*.mha
+toothfairy3_clicks:
+  zip: ToothFairy3_Clicks.zip
+contact:
+  zip: CONTACTdataset.zip       # {Train,Test}/{Train,Test} {Images,Labels} v2/*.jpg + *ImageFeatures.xlsx
+dentex:
+  train_zip: Zenodo/training_data.zip
+  val_zip: Zenodo/validation_data.zip
+cache_dir: data/cache           # git-ignored; optional local cache of decoded volumes
+outputs_dir: outputs
