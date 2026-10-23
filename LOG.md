@@ -168,3 +168,6 @@
 - **Paired ablation:** `randomize.sample` now always draws every sampler, then overrides the disabled factor with nominal.
   With the same seed, an ablation sample differs from the full-DR sample only in that factor.
   (This changed the random draws vs the dr_preview figures; nothing had been rendered with the old scheme except smoke tests.)
+- `scripts/qc_renders.py`: contact sheet with image-level DR, masks and FOV; flags renders with no teeth/mandible, little FOV or NaNs.
+  Note: in Set B the mandible reaches the bottom of the volume, so the dentate crop removes little of the chin-rest strip.
+  → For training, exclude rows below the mandible's lower border + margin from the loss (TODO, training stage).
