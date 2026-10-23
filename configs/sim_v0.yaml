@@ -1,0 +1,21 @@
+# Simulator v0 (step 5). Constants for simpx from X-Splat Table 4 / Sec. 2.1 (verified 2026-10-23):
+# K=200, beta=7.5e-7, p_max=0.25, I0=1, ds=1.35, HU clip [0,4000], ray-length multiplier 0.5.
+seed: 0
+cases: [ToothFairy3F_010, ToothFairy3F_005, ToothFairy3F_020]
+sim:
+  voxel_mm: 0.3
+  column_mm: 0.3
+  arch_poly_deg: 4
+  arch_extend_mm: 15.0
+  mpr_halfwidth_mm: 12.0
+  simpx_K: 200
+  simpx_ray_mult: 0.5
+  simpx_beta: 7.5e-7
+  simpx_ds: 1.35
+  simpx_p_max: 0.25
+  simpx_I0: 1.0
+  hu_clip: [0.0, 4000.0]
+real:
+  dentex_subset: training_data/quadrant_enumeration/xrays/
+  n_dentex: 3
+  contact_crop_mm: 24.0

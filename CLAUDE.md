@@ -39,8 +39,9 @@ All raw data are zips in the repo root; paths in `configs/paths.yaml`; read via 
 ## Simulator starting points
 PX2Tooth repo (MIT) `data_process/` (CBCT→pano projection, labels, arch curves); NeBLa SimPX focal-trough
 Beer–Lambert rays (reimplement from paper); X-Splat (arXiv 2607.02099 App. B.2) SimPX constants on TF3:
-K=200 samples/ray, 128×256, β=7.5e-7, p_max=0.25, HU clip [0,4000] — **verify before relying on them**;
-DiffDRR optional.
+K=200 samples/ray, 128×256, β=7.5e-7, p_max=0.25, HU clip [0,4000] — **verified** (+ I0=1, Δs=1.35, ray mult 0.5,
+β on raw clipped HU); DiffDRR optional. PX2Tooth's projection core (`preprocess/*`) is missing from its repo; NeBLa's
+ray geometry is underspecified. Our v0 lives in `src/dentalpano/simulator.py` (see LOG.md step 5).
 
 ## Working rules
 - Python 3.11 venv at `.venv` (uv); pinned in `requirements.lock.txt`; package `dentalpano` in `src/` (editable).
@@ -52,6 +53,6 @@ DiffDRR optional.
 
 ## First-session plan
 1. Repo setup ✔  2. Data audit ✔ → `outputs/data_audit.md` (**Checkpoint 1**)  3. Orientation check ✔ (PNG slices,
-one volume per set)  4. CONTACT loader + overlays (5/group) (**Checkpoint 2**)  5. Simulator v0: PX2Tooth
+one volume per set)  4. CONTACT loader ✔ (**Checkpoint 2**)  5. Simulator v0 ✔: PX2Tooth
 projection + SimPX rays, 3 Set B renders with multi-label masks next to real panoramics; list differences
 (**Checkpoint 3**).

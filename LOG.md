@@ -47,3 +47,26 @@
   Canal level is consistent within each family except 3 masks with swapped levels (train 209, 410, test 1000); shape handles them (checked visually).
 - Derived groups: 1100 / 118 / 260 (brief: 1100 / 101 / 277). Still approximate. All E/F masks (48) are non-contact without overlap.
 - 15 contact=1 cases have masks that touch but do not overlap → a radiographic "adjacent" case, not a decoding error.
+
+## 2026-10-23 — Session 1 (cont.)
+
+### Step 5: simulator v0 → `outputs/sim_v0/` (per-case npz + png, compare_dentex.png, compare_contact_crops.png, run.json)
+- **PX2Tooth** (cloned into git-ignored `external/`; MIT): `Get_Panoramic_Label.py` and `Get_Panoramic_Mean.py` import
+  `preprocess.{arch_mask,skeleton,MPR,projection}`, which are **missing from the repo**. Its core cannot be ported verbatim.
+  Reimplemented the pipeline it describes: axial projection of the teeth mask → arch curve → samples along the arch →
+  slab along the normals (thickness 40 vox) → MPR mean. `Get_Panoramic_Mean.py` instead uses a fixed circular arc and max-projection.
+- **NeBLa** repo: model classes only (confirmed). The paper gives the quadratic centre curve f(x)=0.01(x±100)², 21 centres,
+  θ = 0.5°/0.6°/1.5°, and 200 samples per ray. The ray geometry is **underspecified**: no initial direction, ray start point,
+  or column mapping. My reading (rays tangent to the centre curve) sweeps only ~90° and gives ~100 rays, not 256 columns.
+  → Not implemented in v0. Open item.
+- **X-Splat constants verified** (arXiv 2607.02099 Table 4, Sec. 2.1, text): K=200, 128×256, β=7.5e-7, p_max=0.25, I0=1,
+  Δs=1.35, HU clip [0,4000], ray-length multiplier 0.5, "direct scaling" (β multiplies HU directly), Set B only (60 scans).
+  Table 4 labels the angular steps (0.528/0.600/1.509) "rad"; they must be degrees (NeBLa: 0.5°/0.6°/1.5°). Likely a typo in their table.
+- **v0 design** (`src/dentalpano/simulator.py`, `configs/sim_v0.yaml`):
+  patient-specific arch = 4th-order polynomial fitted to the axial projection of the tooth labels, extended 15 mm, 0.3 mm/column.
+  Rays run along the arch normals. Two renderers: MPR mean (±12 mm) and SimPX Beer–Lambert (ray ±0.5·diag/2 ≈ ±43 mm, X-Splat constants).
+  Masks: any-hit per channel within the trough (±12 mm; sinus ±20 mm; pharynx whole ray). Overlaps preserved.
+  Runtime ~1.5 s/volume. SimPX values 0–0.58, so the X-Splat constants give a sane range.
+- Rendered F_010 (32 teeth, no metal), F_005 (bridge, crown, implant), F_020 (crowns, implants). Real references: DENTEX
+  quadrant_enumeration train_390/461/582 (seed 0), plus CONTACT ROIs vs simulated molar ROIs (crop placement approximate).
+- Visible differences vs real: see Checkpoint 3 summary (FOV, blur, ghosts, spine, open bite, contrast, noise, resolution, metal).
