@@ -70,3 +70,38 @@
 - Rendered F_010 (32 teeth, no metal), F_005 (bridge, crown, implant), F_020 (crowns, implants). Real references: DENTEX
   quadrant_enumeration train_390/461/582 (seed 0), plus CONTACT ROIs vs simulated molar ROIs (crop placement approximate).
 - Visible differences vs real: see Checkpoint 3 summary (FOV, blur, ghosts, spine, open bite, contrast, noise, resolution, metal).
+
+### Step 6: rotational OPG simulator v1 → `src/dentalpano/opg.py`, `configs/opg_v1.yaml`, `outputs/opg_v1/`, `outputs/opg_phantom/`
+- **Model.** Time-delay-integration (TDI) panoramic. Per time step (0.3 mm of travel along the arch):
+  - Central ray through arch point A(s), tilted up 5°. Source 400 mm behind the trough, detector 100 mm in front (M = 1.25).
+  - 6 mm vertical slit; every slit pixel casts its own ray.
+  - Detector advances M·cos δ per step, so trough points stay fixed and everything else drifts.
+  - Transmission is averaged over the exposure and shown as −log. μ = 0.02/mm·(1+HU/1000), clipped at 0 (physical mode); SimPX constants are an option.
+  - Torch `grid_sample` on MPS: ~10–14 s per volume (vs 1.5 s for v0).
+  - Masks use a per-ray depth window around the focal point, at ≥50% of the exposure, and keep overlaps.
+- **Bead-phantom validation** (`scripts/opg_phantom.py`, one render per bead, F_010 arch):
+  - **Bug found:** first measurement used overlapping windows → garbage. Fixed by rendering each bead separately.
+  - **Normal beams (v0 geometry):** posterior beams are almost pure translation → no depth blur (beads sharp at ±15 mm), no ghosts. Unrealistic.
+  - **Fixed r profile (front 30 → back 60 mm, then 20 → 45):** trough narrow anteriorly, wide posteriorly, lingual blurs faster. But beams drift 20–26° oblique posteriorly. On real volumes that smeared every tooth by ~4 mm horizontally (a tooth's buccal and lingual surfaces project to different columns). Confirmed: a 2 mm slit (≈ no TDI motion) was equally blurred.
+  - **Fix = "curvature" beam mode (default):** r(s) = arch radius of curvature (σ 5 mm), clipped to [15, 80] mm, plus a pull toward the arch normal k = 0.3/mm. Result:
+    - δ = 0–0.2° at incisor, canine and premolar; 8.8° at the molar; max 18° at the arch ends (third-molar zone).
+    - Effective r = 23 mm (incisor), 24 (canine), 30 (premolar), 82 (molar).
+    - Peak height ≥ 0.7 within about ±6 mm anteriorly (narrow trough). Molars stay sharp out to ±15 mm (wide trough).
+    - In-trough beads 0.9–1.2 mm, i.e. sharp at all heights and tilts.
+- **Arch fit changed** from polynomial j(i) to polar ρ(θ) (`simulator.fit_arch`). The polynomial ran ~5 mm lingual of the posterior teeth.
+  v0 outputs were re-rendered with it.
+- **Real renders (F_010/F_005/F_020).** Effects that now come from the physics:
+  - spine shadow over the incisors;
+  - ghosted opposite rami/spine at the image edges;
+  - air-space bands along the palate and tongue;
+  - "smile" occlusal curve (tilt);
+  - soft-tissue gradients and blur outside the trough.
+  Processing (background subtraction σ 12 mm, 85%) is needed for contrast. The raw −log image is kept so processing can be randomised later.
+- **Remaining differences vs DENTEX:**
+  - FOV: no orbits, nasal cavity or condyles; sinus barely present. This is CBCT coverage.
+  - Open bite in CBCT vs bite block.
+  - CBCT chin rest visible at the bottom.
+  - No noise or detector texture.
+  - 0.3 mm vs ~0.1 mm pixels, so CONTACT-scale crops are soft.
+  - Molar crop centring is still approximate.
+  - Single arch curve for both jaws; the upper arch is more buccal.

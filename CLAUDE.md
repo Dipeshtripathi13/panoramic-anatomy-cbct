@@ -41,7 +41,9 @@ PX2Tooth repo (MIT) `data_process/` (CBCT→pano projection, labels, arch curves
 Beer–Lambert rays (reimplement from paper); X-Splat (arXiv 2607.02099 App. B.2) SimPX constants on TF3:
 K=200 samples/ray, 128×256, β=7.5e-7, p_max=0.25, HU clip [0,4000] — **verified** (+ I0=1, Δs=1.35, ray mult 0.5,
 β on raw clipped HU); DiffDRR optional. PX2Tooth's projection core (`preprocess/*`) is missing from its repo; NeBLa's
-ray geometry is underspecified. Our v0 lives in `src/dentalpano/simulator.py` (see LOG.md step 5).
+ray geometry is underspecified. v0 (normal rays, no blur) = `src/dentalpano/simulator.py`. **Current simulator =
+`src/dentalpano/opg.py`** (rotational TDI panoramic, "curvature" beam mode, validated with `scripts/opg_phantom.py`;
+see LOG.md step 6).
 
 ## Working rules
 - Python 3.11 venv at `.venv` (uv); pinned in `requirements.lock.txt`; package `dentalpano` in `src/` (editable).

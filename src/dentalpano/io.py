@@ -12,7 +12,6 @@ from functools import lru_cache
 from pathlib import Path
 
 import nibabel as nib
-import numpy as np
 import yaml
 
 REPO = Path(__file__).resolve().parents[2]

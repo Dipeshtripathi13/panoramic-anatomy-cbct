@@ -9,7 +9,6 @@ import collections
 import json
 import re
 from concurrent.futures import ProcessPoolExecutor
-from pathlib import Path
 
 import nibabel as nib
 import numpy as np
@@ -152,11 +151,11 @@ def main() -> None:
     L += ["", "## ToothFairy2 vs ToothFairy3 overlap", "",
           f"TF2 cases (images): **{len(imgs2)}** (" + ", ".join(f"{k}: {v}" for k, v in imgs2.letter.value_counts().sort_index().items()) + ")",
           f"- TF2 labelsTr files: {(tf2.kind == 'labelsTr').sum()}",
-          f"- spacing: " + "; ".join(f"`{k}` ×{v}" for k, v in imgs2.spacing.astype(str).value_counts().items()),
-          f"- ElementType: " + "; ".join(f"`{k}` ×{v}" for k, v in imgs2.etype.value_counts().items()),
-          f"- AnatomicalOrientation: " + "; ".join(f"`{k}` ×{v}" for k, v in imgs2.orient.value_counts().items()),
+          "- spacing: " + "; ".join(f"`{k}` ×{v}" for k, v in imgs2.spacing.astype(str).value_counts().items()),
+          "- ElementType: " + "; ".join(f"`{k}` ×{v}" for k, v in imgs2.etype.value_counts().items()),
+          "- AnatomicalOrientation: " + "; ".join(f"`{k}` ×{v}" for k, v in imgs2.orient.value_counts().items()),
           f"- TF2 cases whose ID (letter+number) also exists in TF3: **{len(ov)}** "
-          f"(" + ", ".join(f"{k}: {v}" for k, v in ov.letter.value_counts().sort_index().items()) + ")",
+          "(" + ", ".join(f"{k}: {v}" for k, v in ov.letter.value_counts().sort_index().items()) + ")",
           f"- of those, identical volume shape in both: **{(ov['shape'] == ov['tf3_shape']).sum()} / {len(ov)}**",
           f"- TF2-only cases (not in TF3): {(~imgs2.in_tf3).sum()}",
           f"- TF3-only cases (not in TF2): {len(set(tf3.case) - set(imgs2.tf3_case))}",

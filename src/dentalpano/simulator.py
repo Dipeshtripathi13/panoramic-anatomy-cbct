@@ -62,15 +62,32 @@ class SimConfig:
 
 # ---------------------------------------------------------------- arch curve
 def fit_arch(lab: np.ndarray, cfg: SimConfig) -> dict:
-    """Arch curve in voxel (i, j) coordinates, resampled by arclength."""
+    """Arch curve in voxel (i, j) coordinates, resampled by arclength.
+
+    Polar fit: around a centre behind the incisors (mean i; 75% of the way back in j),
+    take the median radius of tooth pixels per 2° of angle θ (θ = 0 anterior, ±90° lateral),
+    smooth ρ(θ) with a polynomial in θ, and map back. Unlike a polynomial j(i), this
+    follows the near-sagittal posterior segments.
+    """
     teeth = np.isin(lab, TOOTH_IDS + [8, 9, 10]).any(axis=2)
     ii, jj = np.nonzero(teeth)
-    cols = np.unique(ii)
-    med = np.array([np.median(jj[ii == c]) for c in cols])
-    w = np.array([(ii == c).sum() for c in cols], float)
-    coef = np.polyfit(cols, med, cfg.arch_poly_deg, w=np.sqrt(w))
-    i_dense = np.linspace(cols.min(), cols.max(), 4000)
-    pts = np.stack([i_dense, np.polyval(coef, i_dense)], 1)
+    ci, cj = ii.mean(), jj.min() + 0.75 * (jj.max() - jj.min())
+    theta = np.arctan2(ii - ci, cj - jj)
+    rho = np.hypot(ii - ci, jj - cj)
+    edges = np.deg2rad(np.arange(-180, 181, 2))
+    idx = np.digitize(theta, edges)
+    tb, rb, wb = [], [], []
+    for b in np.unique(idx):
+        sel = idx == b
+        if sel.sum() >= 20:
+            tb.append(np.median(theta[sel]))
+            rb.append(np.median(rho[sel]))
+            wb.append(sel.sum())
+    tb, rb, wb = map(np.asarray, (tb, rb, wb))
+    coef = np.polyfit(tb, rb, cfg.arch_poly_deg, w=np.sqrt(wb))
+    th = np.linspace(tb.min(), tb.max(), 4000)
+    r = np.polyval(coef, th)
+    pts = np.stack([ci + r * np.sin(th), cj - r * np.cos(th)], 1)
 
     ext = cfg.arch_extend_mm / cfg.voxel_mm
     t0 = pts[0] - pts[5]

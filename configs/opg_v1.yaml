@@ -1,0 +1,26 @@
+# Rotational panoramic (OPG) simulator v1 — see src/dentalpano/opg.py.
+# Geometry defaults chosen with the bead phantom (scripts/opg_phantom.py, LOG.md).
+seed: 0
+cases: [ToothFairy3F_010, ToothFairy3F_005, ToothFairy3F_020]
+opg:
+  voxel_mm: 0.3
+  column_mm: 0.3
+  arch_extend_mm: 25.0
+  beam: curvature          # r(s) = arch radius of curvature clipped to [r_min, r_max] + pull toward normal
+  r_min_mm: 15.0
+  r_max_mm: 80.0
+  curvature_smooth_mm: 5.0
+  k_normal_per_mm: 0.3
+  sid_mm: 500.0
+  src_trough_mm: 400.0
+  slit_mm: 6.0
+  tilt_deg: 5.0
+  depth_before_mm: 140.0
+  depth_after_mm: 40.0
+  step_mm: 0.6
+  mode: physical
+  mu_water_per_mm: 0.02
+real:
+  dentex_subset: training_data/quadrant_enumeration/xrays/
+  n_dentex: 3
+  contact_crop_mm: 24.0

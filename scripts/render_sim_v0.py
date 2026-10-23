@@ -14,8 +14,6 @@ import subprocess
 import matplotlib
 import numpy as np
 import yaml
-from PIL import Image
-from scipy import ndimage
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
@@ -23,23 +21,9 @@ import matplotlib.pyplot as plt  # noqa: E402
 from dentalpano import contact, tf3  # noqa: E402
 from dentalpano import io as dio  # noqa: E402
 from dentalpano import simulator as S  # noqa: E402
+from dentalpano.viz import COLORS, dentex_images, disp, draw_masks, molar_crop  # noqa: E402
 
 OUT = dio.REPO / "outputs" / "sim_v0"
-COLORS = {"teeth": "yellow", "pulp": "cyan", "canal_L": "red", "canal_R": "orange", "incisive_canal": "magenta",
-          "sinus": "deepskyblue", "crown": "white", "bridge": "lightgray", "implant": "springgreen", "pharynx": "lime"}
-
-
-def disp(a: np.ndarray, lo=1, hi=99.5) -> np.ndarray:
-    p0, p1 = np.percentile(a, [lo, hi])
-    return np.clip((a - p0) / (p1 - p0), 0, 1)
-
-
-def draw_masks(ax, masks):
-    for k, c in COLORS.items():
-        if masks[k].any():
-            ax.contour(masks[k], levels=[0.5], colors=[c], linewidths=0.6)
-
-
 def case_figure(case, r, path):
     fig, ax = plt.subplots(3, 1, figsize=(11, 13))
     ax[0].imshow(disp(r["mpr"]), cmap="gray")
@@ -47,44 +31,13 @@ def case_figure(case, r, path):
     ax[1].imshow(r["simpx"], cmap="gray", vmin=0, vmax=max(1e-3, np.percentile(r["simpx"], 99.8)))
     ax[1].set_title(f"SimPX Beer–Lambert (ray ±{r['ray_half_mm']:.0f} mm, K=200)")
     ax[2].imshow(r["simpx"], cmap="gray", vmin=0, vmax=max(1e-3, np.percentile(r["simpx"], 99.8)))
-    draw_masks(ax[2], r["masks"])
-    present = [k for k in COLORS if r["masks"][k].any()]
+    present = draw_masks(ax[2], r["masks"])
     ax[2].set_title("projected multi-label masks: " + ", ".join(f"{k} ({COLORS[k]})" for k in present), fontsize=8)
     for a in ax:
         a.set_xlabel("patient right  ←  arch arclength (0.3 mm/col)  →  patient left", fontsize=8)
     fig.tight_layout()
     fig.savefig(path, dpi=80)
     plt.close(fig)
-
-
-def dentex_images(cfg, rng):
-    zf = dio.open_zip("dentex", "train_zip")
-    names = sorted(n for n in zf.namelist() if n.startswith(cfg["real"]["dentex_subset"]) and n.endswith(".png"))
-    pick = [names[i] for i in sorted(rng.choice(len(names), cfg["real"]["n_dentex"], replace=False))]
-    return [(n.split("/")[-1], np.array(Image.open(zf.open(n)).convert("L"))) for n in pick]
-
-
-def molar_crop(r, side: str, crop_mm: float, vx: float):
-    """Square crop centred between the lower third (or second) molar and its canal, like CONTACT ROIs."""
-    canal = r["masks"]["canal_L" if side == "L" else "canal_R"]
-    for tid in ((38, 37) if side == "L" else (48, 47)):
-        m = r["masks"][f"tooth{tid}"]
-        if m.any():
-            break
-    else:
-        return None, None
-    rc, cc = ndimage.center_of_mass(m)
-    near = canal.copy()
-    near[:, : max(0, int(cc) - 60)] = False
-    near[:, int(cc) + 60:] = False
-    if near.any():
-        rc = 0.5 * (rc + ndimage.center_of_mass(near)[0])
-    h = int(round(crop_mm / vx / 2))
-    r0, c0 = int(rc) - h, int(cc) - h
-    img = disp(r["simpx"])
-    pad = np.pad(img, h)
-    crop = pad[r0 + h: r0 + 3 * h, c0 + h: c0 + 3 * h]
-    return np.array(Image.fromarray((crop * 255).astype(np.uint8)).resize((227, 227), Image.BILINEAR)), tid
 
 
 def main() -> None:
@@ -113,7 +66,7 @@ def main() -> None:
               {k: int(v.sum()) for k, v in r["masks"].items() if not k.startswith("tooth")})
 
     # ---- side by side with real DENTEX panoramics
-    real = dentex_images(cfg, rng)
+    real = dentex_images(cfg["real"]["dentex_subset"], cfg["real"]["n_dentex"], rng)
     fig, ax = plt.subplots(len(results), 3, figsize=(24, 4.4 * len(results)))
     for row, ((case, r), (rname, rimg)) in enumerate(zip(results.items(), real)):
         ax[row, 0].imshow(disp(r["mpr"]), cmap="gray")
@@ -136,7 +89,7 @@ def main() -> None:
     k = 0
     for case, r in results.items():
         for side in ("R", "L"):
-            crop, tid = molar_crop(r, side, cfg["real"]["contact_crop_mm"], simcfg.voxel_mm)
+            crop, tid = molar_crop(r["simpx"], r["masks"], side, cfg["real"]["contact_crop_mm"], simcfg.voxel_mm)
             if crop is not None:
                 ax[0, k].imshow(crop, cmap="gray")
                 ax[0, k].set_title(f"sim {case[-6:]} tooth {tid}", fontsize=9)
