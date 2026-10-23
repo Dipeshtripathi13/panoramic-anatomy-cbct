@@ -49,14 +49,18 @@ FACTORS = {
 
 
 def sample(rng: np.random.Generator, enabled: set[str] | None = None) -> dict:
-    """Parameter dict: enabled factors are sampled, the rest are nominal."""
+    """Parameter dict: enabled factors are sampled, the rest are nominal.
+
+    Every sampler is always drawn (in a fixed order) so that, for the same rng seed, an ablation
+    sample differs from the fully randomised one ONLY in the disabled factor (paired ablation)."""
     enabled = set(FACTORS) if enabled is None else set(enabled)
     unknown = enabled - set(FACTORS)
     assert not unknown, f"unknown factors {unknown}"
     out = {}
     for name, (_, params) in FACTORS.items():
         for p, (nominal, sampler) in params.items():
-            out[p] = sampler(rng) if name in enabled else nominal
+            v = sampler(rng)
+            out[p] = v if name in enabled else nominal
     return out
 
 

@@ -162,3 +162,9 @@
   (44 channels × 2 passes per render) on slower Skylake cores.
   **Fix:** channel bits built with one 256-entry lookup table (bit-identical, 3.8 s → 0.34 s); annotated flags from one bincount;
   `opg.prepare_labels()` caches both per volume across variants. Mac render now ~6.3 s (from ~14 s); the rest is mostly GPU.
+- **V100 smoke test after the fix (job 1311477):** 6 renders + 2 volume loads in 0.6 min (was 2.3) → ~5 s per Set B variant.
+  Estimates on one V100: test nominal ~15 min; main set (427 vols × 9) ~4 h; full ablation (7 × 374 × 4) ~15 h.
+- **Sharding:** `render_dataset.py --shard/--nshards` plus a Slurm job array (`sbatch --array=0-3%4 …`); `index.json` written atomically.
+- **Paired ablation:** `randomize.sample` now always draws every sampler, then overrides the disabled factor with nominal.
+  With the same seed, an ablation sample differs from the full-DR sample only in that factor.
+  (This changed the random draws vs the dr_preview figures; nothing had been rendered with the old scheme except smoke tests.)

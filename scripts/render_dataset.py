@@ -14,6 +14,7 @@ Usage:
   .venv/bin/python scripts/render_dataset.py --name nominal_test --splits test --variants 0
   .venv/bin/python scripts/render_dataset.py --name abl_no_ghosts --disable ghosts --variants 4
   --limit N renders only the first N volumes (smoke tests).
+  --shard i --nshards n renders volumes i, i+n, i+2n, … (one Slurm array task per shard; same output folder).
 """
 from __future__ import annotations
 
@@ -55,12 +56,14 @@ def main() -> None:
     ap.add_argument("--no-nominal", action="store_true")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--limit", type=int, default=None)
+    ap.add_argument("--shard", type=int, default=0)
+    ap.add_argument("--nshards", type=int, default=1)
     args = ap.parse_args()
 
     out = ROOT / args.name
     out.mkdir(parents=True, exist_ok=True)
     split = json.loads((dio.REPO / "splits" / "toothfairy3.json").read_text())
-    cases = [c for s in args.splits for c in split[s]][: args.limit]
+    cases = [c for s in args.splits for c in split[s]][: args.limit][args.shard:: args.nshards]
     enabled = set(DR.FACTORS) - set(args.disable)
     base = opg.OPGConfig()
     base.channels.update(EXTRA_CHANNELS)
@@ -75,7 +78,9 @@ def main() -> None:
         old = json.loads(index_path.read_text())
         assert {k: old[k] for k in ("enabled", "seed", "channels")} == {k: meta[k] for k in ("enabled", "seed", "channels")}, \
             "existing render set was made with different settings"
-    index_path.write_text(json.dumps(meta, indent=1))
+    tmp = out / f".index.{args.shard}.tmp"                 # atomic write: shards may start together
+    tmp.write_text(json.dumps(meta, indent=1))
+    tmp.replace(index_path)
 
     ks = ([] if args.no_nominal else [0]) + list(range(1, args.variants + 1))
     t_start = time.time()
