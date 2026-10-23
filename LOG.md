@@ -116,3 +116,26 @@
     plus one re-cropped copy at 394 (checked visually). Threshold 400.
   - The wrong files were deleted and regenerated before any use. TF3 and CONTACT files came out byte-identical; only dentex.json changed.
 - Verified: no duplicate group in two DENTEX pools; no TF3 or CONTACT overlap.
+
+### Step 8: domain-randomisation layer + dataset renderer
+- `src/dentalpano/randomize.py`: factor registry. Each factor has a nominal value and a sampler; ablation = fix one factor at nominal.
+  - **Volume factors:** contrast (μ_water 0.016–0.026/mm, bone contrast 0.75–1.3), spine scale 0.3–1.6, metal scale 1–3.
+  - **Geometry factors:** trough width (r scale 0.7–1.6), blur outside the trough (slit 3–10 mm), ghosts (far-side weight 0.4–1.3),
+    arch jitter (AP ±4, lateral ±2 mm, rotation ±4°, scale ±5%, tilt 0–10°).
+  - **Image factors (on the fly):** noise (2e3–5e4 photons, read noise, PSF ≤ 0.4 mm), processing (background σ 6–25 mm,
+    amount 0.6–0.95, unsharp 0–1, γ 0.7–1.4).
+- **Problems found in the preview** (`outputs/dr_preview/`):
+  - The metal mask used HU > 2800, but enamel reaches the scanner ceiling (~3100 HU). Now metal = crown/bridge/implant labels only.
+  - The spine mask (bone behind the airway) first caught skull base and mastoid laterally. Now limited to ±25 mm of the airway midline.
+  - At HU > 500 the spine mask held only the vertebral cortex. Now closed and hole-filled per slice.
+  - The bright central band below the incisors persists with spine = 0. A depth-window test shows it is far-side neck soft tissue
+    between the airway lobes. That is physical, so it is kept.
+  - The spine is also superimposed on the ramus regions at the image edges, as in real panoramics.
+- **Chin rest/bite block:** connected to the body, so it cannot be removed by connectivity.
+  Panoramics are cropped vertically (top → mandible lower border + 8 mm). Real images will be cropped the same way.
+- `opg.render` additions: far-side weight, FOV mask (Set A volumes don't reach the upper jaw), per-case `annotated` channel flags,
+  channels encoded in chunks of 23 bits (44 channels = 12 structures + 32 per-tooth). Mask reduction runs on the depth window only:
+  32 s → 14 s per render, with bit-identical masks.
+- **Reproducibility:** MPS scatter-add order varies, so meanT differs between runs in 0.005% of pixels by one float16 step. Masks are identical.
+- `scripts/render_dataset.py`: v0 nominal + K random variants per volume; resumable; data/renders/<name>/<case>_v<k>.npz (~0.3 MB each).
+- **Timing per render:** Set A ~8 s, Set C ~12 s, Set B ~15–17 s → ~71 min per pass over train+val (427 volumes).

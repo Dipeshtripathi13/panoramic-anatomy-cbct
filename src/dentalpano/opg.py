@@ -71,6 +71,8 @@ class OPGConfig:
     simpx_beta: float = 7.5e-7
     simpx_ds_per_mm: float = 3.1    # matches v0 SimPX (ds = 1.35 per 0.43 mm sample)
     hu_clip: tuple = (0.0, 4000.0)
+    far_weight: float = 1.0         # attenuation weight for samples > far_depth_mm behind the trough
+    far_depth_mm: float = 50.0      # (far-side jaw, spine: the sources of ghosts); 1.0 = physical
     z_center_vox: float | None = None  # central-ray height at the trough; None = teeth centroid
     mask_threshold: float = 0.5
     batch_frames: int = 12
@@ -93,14 +95,17 @@ def mu_volume(img: np.ndarray, cfg: OPGConfig) -> np.ndarray:
     return (np.clip(img, lo, hi) * cfg.simpx_beta * cfg.simpx_ds_per_mm).astype(np.float32)
 
 
-def channel_bits(lab: np.ndarray, cfg: OPGConfig) -> tuple[np.ndarray, list[str]]:
-    """Encode every channel as one bit of a float32 volume (depth windows are applied per ray)."""
+def channel_bits(lab: np.ndarray, cfg: OPGConfig) -> tuple[list[np.ndarray], list[str]]:
+    """Encode channels as bits of float32 volumes, 23 channels per volume (float32 is exact to 2**24).
+    Depth windows are applied per ray at render time."""
     names = list(cfg.channels)
-    assert len(names) <= 23, "float32 holds integers exactly only up to 2**24"
-    bits = np.zeros(lab.shape, np.int32)
-    for b, name in enumerate(names):
-        bits |= np.isin(lab, cfg.channels[name][0]).astype(np.int32) << b
-    return bits.astype(np.float32), names
+    vols = []
+    for c0 in range(0, len(names), 23):
+        bits = np.zeros(lab.shape, np.int32)
+        for b, name in enumerate(names[c0:c0 + 23]):
+            bits |= np.isin(lab, cfg.channels[name][0]).astype(np.int32) << b
+        vols.append(bits.astype(np.float32))
+    return vols, names
 
 
 def process(image: np.ndarray, px_mm: float, sigma_mm: float = 12.0, amount: float = 0.85,
@@ -181,8 +186,9 @@ def render(img: np.ndarray | None, lab: np.ndarray | None, cfg: OPGConfig | None
     mu_t = torch.from_numpy(mu)[None, None].to(dev)
     names = []
     if lab is not None:
-        bits, names = channel_bits(lab, cfg)
-        bits_t = torch.from_numpy(bits)[None, None].to(dev)
+        bit_vols, names = channel_bits(lab, cfg)
+        bits_t = [torch.from_numpy(bv)[None, None].to(dev) for bv in bit_vols]
+        del bit_vols
     if cfg.z_center_vox is not None:
         zc = cfg.z_center_vox
     elif lab is not None and np.isin(lab, TOOTH_IDS).any():
@@ -211,8 +217,13 @@ def render(img: np.ndarray | None, lab: np.ndarray | None, cfg: OPGConfig | None
     tf = lambda a: torch.tensor(np.asarray(a), dtype=torch.float32, device=dev)
     offs_t, v_t, lam_t = tf(offs), tf(v), tf(lam)
     depth = lam - cfg.src_trough_mm                 # signed depth from the focal point (+ = buccal)
-    windows = [torch.as_tensor(np.ones_like(depth, bool) if hw is None else np.abs(depth) <= hw, device=dev)
-               for _, hw in (cfg.channels[n] for n in names)]
+    wgt = tf(np.where(depth < -cfg.far_depth_mm, cfg.far_weight, 1.0))
+    k0 = int(np.argmin(np.abs(depth)))              # sample at the trough crossing (for the FOV mask)
+    hi_vox = tf(np.array(shape) - 1)
+    fov = torch.zeros((R, ncol), device=dev)
+    # sample indices of each channel's depth window (channels sharing a window are reduced together)
+    win_idx = [torch.as_tensor(np.nonzero(np.ones_like(depth, bool) if hw is None else np.abs(depth) <= hw)[0],
+                               device=dev) for _, hw in (cfg.channels[n] for n in names)]
     z3 = np.array([0.0, 0.0, 1.0])
     for f0 in range(0, nF, cfg.batch_frames):
         fs = np.arange(f0, min(f0 + cfg.batch_frames, nF))
@@ -231,7 +242,9 @@ def render(img: np.ndarray | None, lab: np.ndarray | None, cfg: OPGConfig | None
         pts = (S_t[:, None, None, None] + lam_t[None, None, None, :, None] * d[:, :, :, None]) / vx
         grid = _to_grid(pts, shape).reshape(1, -1, 1, 1, 3)
         line = F.grid_sample(mu_t, grid, mode="bilinear", padding_mode="zeros", align_corners=True)
-        line = line.reshape(len(fs), W, R, -1).sum(-1) * cfg.step_mm               # (B, W, R)
+        line = (line.reshape(len(fs), W, R, -1) * wgt).sum(-1) * cfg.step_mm        # (B, W, R)
+        p0 = pts[:, :, :, k0]
+        inside = ((p0 >= 0) & (p0 <= hi_vox)).all(-1).float().reshape(-1, R).T
         Tr = torch.exp(-line).reshape(-1, R).T                                        # (R, B*W)
 
         # splat each slit column to its fractional image column (linear weights)
@@ -243,17 +256,26 @@ def render(img: np.ndarray | None, lab: np.ndarray | None, cfg: OPGConfig | None
         accT.index_add_(1, hi_t, Tr * w_hi)
         cnt.index_add_(0, lo_t, 1 - w_hi)
         cnt.index_add_(0, hi_t, w_hi)
+        fov.index_add_(1, lo_t, inside * (1 - w_hi))
+        fov.index_add_(1, hi_t, inside * w_hi)
         if names:
-            lb = F.grid_sample(bits_t, grid, mode="nearest", padding_mode="zeros", align_corners=True)
-            lb = lb.reshape(len(fs), W, R, -1).to(torch.int32)
-            for b in range(len(names)):
-                hit = (((lb >> b) & 1) * windows[b]).amax(-1).float().reshape(-1, R).T
-                occ[b].index_add_(1, lo_t, hit * (1 - w_hi))
-                occ[b].index_add_(1, hi_t, hit * w_hi)
+            for ci, bt in enumerate(bits_t):
+                lb = F.grid_sample(bt, grid, mode="nearest", padding_mode="zeros", align_corners=True)
+                lb = lb.reshape(len(fs), W, R, -1).to(torch.int32)
+                sliced = {}
+                for bb in range(min(23, len(names) - 23 * ci)):
+                    b = 23 * ci + bb
+                    key = (int(win_idx[b][0]), len(win_idx[b]))
+                    if key not in sliced:      # OR of all bits over the window, via max over int samples per bit below
+                        sliced[key] = lb.index_select(-1, win_idx[b])
+                    hit = ((sliced[key] >> bb) & 1).amax(-1).float().reshape(-1, R).T
+                    occ[b].index_add_(1, lo_t, hit * (1 - w_hi))
+                    occ[b].index_add_(1, hi_t, hit * w_hi)
 
     keep = (cnt > 0.5).cpu().numpy()
     meanT = (accT / cnt.clamp(min=1e-6)).cpu().numpy()[:, keep]
     soft = (occ / cnt.clamp(min=1e-6)).cpu().numpy()[:, :, keep]
+    fovm = ((fov / cnt.clamp(min=1e-6)).cpu().numpy()[:, keep]) >= 0.5
     image = -np.log(np.clip(meanT, 1e-6, 1))
     first = int(np.argmax(keep))
     frame_col = col0 - first
@@ -262,11 +284,14 @@ def render(img: np.ndarray | None, lab: np.ndarray | None, cfg: OPGConfig | None
     flip = geo["A"][0, 0] > geo["A"][-1, 0]
     if flip:
         image, meanT, soft = image[:, ::-1].copy(), meanT[:, ::-1].copy(), soft[:, :, ::-1].copy()
+        fovm = fovm[:, ::-1].copy()
         frame_col = ncol_out - 1 - frame_col
     return {
         "image": image, "meanT": meanT, "processed": process(image, cfg.column_mm),
         "masks": {n: soft[b] >= cfg.mask_threshold for b, n in enumerate(names)},
         "soft_masks": {n: soft[b] for b, n in enumerate(names)},
+        "fov": fovm,
+        "annotated": {n: bool(np.isin(lab, cfg.channels[n][0]).any()) for n in names} if lab is not None else {},
         "arch": arch, "geometry": geo, "frame_col": frame_col, "z_center_vox": zc, "slit_cols": W,
         "z_top_mm": z_top, "pixel_mm_at_trough": cfg.column_mm,
     }
