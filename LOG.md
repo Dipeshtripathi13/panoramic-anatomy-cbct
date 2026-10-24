@@ -203,3 +203,9 @@
   - Also recommended: email the CONTACT authors for full panoramics + canal outlines.
 - **Training:** custom multi-label (sigmoid per channel) U-Net, because channels overlap and nnU-Net assumes one label per pixel.
   The loss is masked by FOV, annotated flags and the chin-rest strip. nnU-Net stays as the real-only teeth baseline.
+- **Annotation guides** (`scripts/annotation_guide.py` → outputs/annotation/guide_1..5.png). They use synthetic train-split renders
+  with exact labels plus real practice images from the DENTEX few-shot train pool (never the 60 annotation images).
+- **Simulator issue found while making the guides:** in partially edentulous patients with missing posterior teeth (F_003, F_029),
+  the teeth-only arch ends early and its straight extension misses the posterior canal, so the canal label is a short stub.
+  This affects some dr_main renders. TODO before training: always fit the posterior arch with mandible-body support (teeth ∪ crest slab),
+  quantify truncated-canal renders (left/right canal length asymmetry), re-render the affected volumes.
