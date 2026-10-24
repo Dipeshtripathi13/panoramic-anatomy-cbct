@@ -193,3 +193,13 @@
   - For training: mask the chin-rest strip out of the loss (Set B bottom).
   - For training: synthetic contrast is flatter than DENTEX → tune the processing ranges against real image statistics.
   - Implant masks are tiny (mostly inside crowns).
+### Step 11: decisions (user said yes to all three recommendations)
+- **Ablation renders:** `cluster/ablation.sbatch` = one array of 28 tasks (7 render-level factors × 4 shards, %4 at a time).
+  Train volumes × v1..v4 with the factor at nominal. Paired with dr_main (same seed function; verified that only the disabled factor differs).
+- **Real labels:** the user will label canal/sinus (60 images) and pulp (20) on DENTEX test images.
+  - `splits/dentex_annotation_subset.json` (write-once, 1 per duplicate group, quadrant_enumeration so tooth polygons exist: 1704 on the subset).
+  - Protocol: `docs/annotation_protocol.md` (label before seeing predictions; visibility flags; expert double-labels the first 15 for agreement).
+  - Label Studio config: data/annotation/dentex_ann/label_config.xml.
+  - Also recommended: email the CONTACT authors for full panoramics + canal outlines.
+- **Training:** custom multi-label (sigmoid per channel) U-Net, because channels overlap and nnU-Net assumes one label per pixel.
+  The loss is masked by FOV, annotated flags and the chin-rest strip. nnU-Net stays as the real-only teeth baseline.
