@@ -182,3 +182,14 @@
   - 43 volumes use the fallback (20 with 0 teeth, 23 with 1–5); edentulous patients stay in the data.
   - `render_dataset.py` now catches per-volume errors, writes failures.shard<i>.json, continues, and exits 2 if any failed.
   - The partial dr_main/nominal_test sets are deleted and re-rendered, because some 1–5-tooth volumes had been rendered with the old arch.
+
+## 2026-10-24
+### Step 10: dataset renders on Lawrence — done and QC'd
+- Re-rendered after the edentulous fix: dr_main = 427 train+val volumes × 9 (v0 nominal + 8 DR) = 3843 renders;
+  nominal_test = 105 test volumes. No failures, no NaNs, no missing mandible, no render with FOV < 50%.
+  `no_teeth`: 162 renders (18 edentulous volumes × 9) and 2 in the test set, as expected. ~1 h on 4 V100s.
+- **Visual QC** (qc.png of both sets, 12 random samples each): teeth/pulp/canals/incisive canals/prostheses align with the image;
+  Set A FOV boundary at the top is respected by the masks; DR variety is visible.
+  - For training: mask the chin-rest strip out of the loss (Set B bottom).
+  - For training: synthetic contrast is flatter than DENTEX → tune the processing ranges against real image statistics.
+  - Implant masks are tiny (mostly inside crowns).
