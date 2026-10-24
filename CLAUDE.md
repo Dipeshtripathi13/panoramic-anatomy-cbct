@@ -32,8 +32,11 @@ All raw data are zips in the repo root; paths in `configs/paths.yaml`; read via 
 - **CONTACT** `CONTACTdataset.zip`: brief describes full panoramics (2700×1249) + XML polygons, but **this copy
   contains 227×227 crops around the third molar with grayscale JPEG masks** (see LOG.md). Train 1034 / Test 444.
   Groups: 1 = overlap+contact, 2 = no overlap/no contact, 3 = overlap/no contact (key hard case).
-- **DENTEX** `Zenodo/{training,validation}_data.zip`: real panoramics + quadrant/enumeration/diagnosis boxes;
-  unlabelled real images + optional teeth test set.
+- **DENTEX** `Zenodo/{training,validation}_data.zip`: real panoramics + quadrant/enumeration/diagnosis boxes and
+  tooth polygons; unlabelled real images + teeth test set. Many duplicate images across subsets (see splits/README.md).
+- **Real evaluation scope:** teeth (DENTEX), canal + molar crops and contact (CONTACT). No real GT for sinus/pulp/incisive
+  canal. The user is not a dental expert and will NOT annotate; manual labels are on hold until an expert is found
+  (annotation set + protocol ready: splits/dentex_annotation_subset.json, docs/annotation_protocol.md).
 - Licences mostly CC BY-NC-SA (TF3 dataset.json says CC-BY-SA 4.0).
 
 ## Simulator starting points

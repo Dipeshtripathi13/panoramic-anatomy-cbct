@@ -209,3 +209,14 @@
   the teeth-only arch ends early and its straight extension misses the posterior canal, so the canal label is a short stub.
   This affects some dr_main renders. TODO before training: always fit the posterior arch with mandible-body support (teeth ∪ crest slab),
   quantify truncated-canal renders (left/right canal length asymmetry), re-render the affected volumes.
+### Step 12: real-label decision (2026-10-24)
+- **User decided not to annotate** (not a dental expert). Self-labelled test ground truth would be weak for a paper.
+  Manual annotation is ON HOLD until an expert is available.
+  `splits/dentex_annotation_subset.json`, `docs/annotation_protocol.md` and the local Label Studio project stay ready for an expert.
+  The user's partial trial annotation of image #1 is not used.
+- **Real evaluation scope now:** teeth + enumeration (DENTEX test, tooth polygons), canal + third molar (CONTACT test crops),
+  contact classification (CONTACT). Sinus / pulp / incisive canal: synthetic test set + qualitative real examples only;
+  state this limitation explicitly.
+- **To pursue:** ask the PI (Prof. Santosh) for an expert annotator; email the CONTACT authors for full panoramics + canal outlines.
+  Public data: no expert panoramic sinus/pulp masks found. MMOral (github.com/isbrycee/OralGPT; built from TED3 + Do et al. 2024)
+  lists canal/sinus, but those appear model-validated, not expert ground truth. Not usable as GT without checking.

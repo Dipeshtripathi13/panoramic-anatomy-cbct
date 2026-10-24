@@ -1,5 +1,8 @@
 # Annotation protocol — real panoramic test labels (canal, sinus, pulp)
 
+> **Status (2026-10-24): on hold.** Intended for an expert annotator (dentist / oral radiologist). The project author is
+> not labelling these images himself.
+
 **Images:** 60 DENTEX test radiographs, listed in `splits/dentex_annotation_subset.json`, exported to
 `data/annotation/dentex_ann/images/`. They are **test** images: never train, tune or choose hyperparameters on them.
 
