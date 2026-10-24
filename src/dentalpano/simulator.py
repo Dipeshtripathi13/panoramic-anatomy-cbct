@@ -61,6 +61,37 @@ class SimConfig:
 
 
 # ---------------------------------------------------------------- arch curve
+MIN_TEETH_FOR_ARCH = 6
+
+
+def alveolar_crest_k(lab: np.ndarray, voxel_mm: float = 0.3) -> float | None:
+    """Height (k, LPS: superior = larger) of the anterior mandibular crest: top of the mandible within
+    15 mm of its most anterior point. None if there is no mandible label."""
+    ii, jj, kk = np.nonzero(lab == 1)
+    if len(kk) == 0:
+        return None
+    front = jj <= jj.min() + 15.0 / voxel_mm
+    return float(np.percentile(kk[front], 98))
+
+
+def arch_points_2d(lab: np.ndarray, voxel_mm: float = 0.3) -> tuple[np.ndarray, np.ndarray, str]:
+    """(i, j) pixels that define the arch: tooth/prosthesis labels; with < MIN_TEETH_FOR_ARCH teeth
+    (edentulous or nearly), also the mandibular body in a 15 mm slab below the alveolar crest."""
+    teeth3d = np.isin(lab, TOOTH_IDS + [8, 9, 10])
+    n_teeth = int(np.isin(TOOTH_IDS, np.unique(lab)).sum())
+    teeth = teeth3d.any(axis=2)
+    source = "teeth"
+    if n_teeth < MIN_TEETH_FOR_ARCH:
+        crest = alveolar_crest_k(lab, voxel_mm)
+        if crest is not None:
+            k0 = max(0, int(crest - 15.0 / voxel_mm))
+            body = (lab[:, :, k0: int(crest) + 1] == 1).any(axis=2)
+            teeth = teeth | body
+            source = f"mandible_slab+{n_teeth}_teeth"
+    ii, jj = np.nonzero(teeth)
+    return ii, jj, source
+
+
 def fit_arch(lab: np.ndarray, cfg: SimConfig) -> dict:
     """Arch curve in voxel (i, j) coordinates, resampled by arclength.
 
@@ -69,8 +100,9 @@ def fit_arch(lab: np.ndarray, cfg: SimConfig) -> dict:
     smooth ρ(θ) with a polynomial in θ, and map back. Unlike a polynomial j(i), this
     follows the near-sagittal posterior segments.
     """
-    teeth = np.isin(lab, TOOTH_IDS + [8, 9, 10]).any(axis=2)
-    ii, jj = np.nonzero(teeth)
+    ii, jj, source = arch_points_2d(lab, cfg.voxel_mm)
+    if len(ii) < 100:
+        raise ValueError(f"cannot fit arch: only {len(ii)} tooth/mandible pixels")
     ci, cj = ii.mean(), jj.min() + 0.75 * (jj.max() - jj.min())
     theta = np.arctan2(ii - ci, cj - jj)
     rho = np.hypot(ii - ci, jj - cj)
@@ -107,7 +139,9 @@ def fit_arch(lab: np.ndarray, cfg: SimConfig) -> dict:
     mid = len(P) // 2
     if N[mid, 1] > 0:  # make normals point buccally (anterior = smaller j at the incisors)
         N = -N
-    return {"points": P, "normals": N, "length_mm": s_new[-1] * cfg.voxel_mm, "coef": coef}
+    if not (np.isfinite(P).all() and np.isfinite(N).all()) or len(P) < 50:
+        raise ValueError(f"degenerate arch fit ({source}, {len(P)} points)")
+    return {"points": P, "normals": N, "length_mm": s_new[-1] * cfg.voxel_mm, "coef": coef, "source": source}
 
 
 # ---------------------------------------------------------------- sampling

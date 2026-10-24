@@ -173,3 +173,12 @@
   → For training, exclude rows below the mandible's lower border + margin from the loss (TODO, training stage).
 - P100 submission: `-B 1:12` (from the docs) fails with "Requested node configuration is not available"; `--cpus-per-task=12` works.
 - 2026-10-23: submitted dr_main (array 1311480_0-3, V100s) and nominal_test (1311485, P100).
+- **First full render attempt failed (jobs 1311480_0–3, 1311490), all tasks after 6–17 min.**
+  Cause: 20 volumes crash `fit_arch`: 19 edentulous (no tooth labels → empty arch) and P_507 (2 teeth → NaN arch).
+  The first bad volume in each shard reproduces the observed counts exactly (dr_main 1045, nominal_test 56 files).
+  - **Fix:** with < 6 teeth, the arch is fitted to the mandibular body in a 15 mm slab below the anterior alveolar crest, plus any teeth.
+    With no teeth, the central-ray height = crest + 5 mm. `fit_arch` now raises on degenerate fits and records `source`.
+    Checked visually: P_026 and S_0009 (edentulous) and P_507 have arches on the ridge, with canals and mandible rendered.
+  - 43 volumes use the fallback (20 with 0 teeth, 23 with 1–5); edentulous patients stay in the data.
+  - `render_dataset.py` now catches per-volume errors, writes failures.shard<i>.json, continues, and exits 2 if any failed.
+  - The partial dr_main/nominal_test sets are deleted and re-rendered, because some 1–5-tooth volumes had been rendered with the old arch.

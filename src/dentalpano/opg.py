@@ -41,7 +41,7 @@ import torch
 import torch.nn.functional as F
 from scipy import ndimage
 
-from .simulator import CHANNELS, PULP_IDS, TOOTH_IDS, SimConfig, fit_arch
+from .simulator import CHANNELS, PULP_IDS, TOOTH_IDS, SimConfig, alveolar_crest_k, fit_arch
 
 OPG_CHANNELS = dict(CHANNELS, teeth=(TOOTH_IDS + PULP_IDS, 12.0))  # a tooth includes its pulp
 
@@ -116,9 +116,13 @@ def prepare_labels(lab: np.ndarray, cfg: OPGConfig) -> dict:
     bits, names = channel_bits(lab, cfg)
     present = np.bincount(lab.ravel(), minlength=256) > 0
     annotated = {n: bool(present[list(cfg.channels[n][0])].any()) for n in names}
+    if present[TOOTH_IDS].any():
+        z = float(np.nonzero(np.isin(lab, TOOTH_IDS))[2].mean())
+    else:                                    # edentulous: central ray 5 mm above the anterior alveolar crest
+        crest = alveolar_crest_k(lab, cfg.voxel_mm)
+        z = None if crest is None else min(crest + 5.0 / cfg.voxel_mm, lab.shape[2] - 1)
     return {"bits": bits, "names": names, "annotated": annotated,
-            "has_teeth": bool(present[TOOTH_IDS].any()),
-            "z_teeth": float(np.nonzero(np.isin(lab, TOOTH_IDS))[2].mean()) if present[TOOTH_IDS].any() else None}
+            "has_teeth": bool(present[TOOTH_IDS].any()), "z_teeth": z}
 
 
 def process(image: np.ndarray, px_mm: float, sigma_mm: float = 12.0, amount: float = 0.85,

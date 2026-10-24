@@ -23,6 +23,7 @@ import hashlib
 import json
 import subprocess
 import time
+import traceback
 
 import numpy as np
 
@@ -84,29 +85,44 @@ def main() -> None:
 
     ks = ([] if args.no_nominal else [0]) + list(range(1, args.variants + 1))
     t_start = time.time()
+    failures = {}
     for n, case in enumerate(cases):
         todo = [k for k in ks if not (out / f"{case}_v{k}.npz").exists()]
         if not todo:
             continue
-        img, _ = tf3.load_image(case)
-        lab, _ = tf3.load_label(case)
-        spine = DR.spine_mask(img, lab)
-        arch = fit_arch(lab, SimConfig(column_mm=base.column_mm, arch_extend_mm=base.arch_extend_mm))
-        labels = opg.prepare_labels(lab, base)          # once per volume, shared by all variants
-        for k in todo:
-            rng = np.random.default_rng(seed_for(args.seed, case, k))
-            p = DR.nominal() if k == 0 else DR.sample(rng, enabled)
-            r = opg.render(None, lab, DR.opg_config(p, base), arch=DR.jitter_arch(arch, p), mu=DR.attenuation(img, lab, p, spine),
-                           labels=labels)
-            masks = np.stack([r["masks"][c] for c in channels])
-            np.savez_compressed(
-                out / f"{case}_v{k}.npz", meanT=r["meanT"].astype(np.float16), fov=r["fov"],
-                masks=np.packbits(masks, axis=0), mask_shape=np.array(masks.shape),
-                crop_rows=np.array(crop_rows(r["masks"], base.column_mm)),
-                params=json.dumps({a: (None if not np.isfinite(b) else b) for a, b in p.items()}),
-                annotated=np.array([r["annotated"][c] for c in channels]))
+        try:
+            render_volume(case, todo, out, args, base, enabled, channels)
+        except Exception as e:                         # one bad volume must not kill the shard
+            failures[case] = f"{type(e).__name__}: {e}"
+            print(f"!! {case} failed: {failures[case]}", flush=True)
+            traceback.print_exc()
         el = time.time() - t_start
         print(f"[{n + 1}/{len(cases)}] {case} ({len(todo)} renders)  elapsed {el / 60:.1f} min", flush=True)
+    if failures:
+        (out / f"failures.shard{args.shard}.json").write_text(json.dumps(failures, indent=1))
+        print(f"{len(failures)} volume(s) failed — see failures.shard{args.shard}.json")
+        raise SystemExit(2)
+
+
+def render_volume(case, todo, out, args, base, enabled, channels) -> None:
+    img, _ = tf3.load_image(case)
+    lab, _ = tf3.load_label(case)
+    spine = DR.spine_mask(img, lab)
+    arch = fit_arch(lab, SimConfig(column_mm=base.column_mm, arch_extend_mm=base.arch_extend_mm))
+    labels = opg.prepare_labels(lab, base)          # once per volume, shared by all variants
+    for k in todo:
+        rng = np.random.default_rng(seed_for(args.seed, case, k))
+        p = DR.nominal() if k == 0 else DR.sample(rng, enabled)
+        r = opg.render(None, lab, DR.opg_config(p, base), arch=DR.jitter_arch(arch, p), mu=DR.attenuation(img, lab, p, spine),
+                       labels=labels)
+        masks = np.stack([r["masks"][c] for c in channels])
+        np.savez_compressed(
+            out / f"{case}_v{k}.npz", meanT=r["meanT"].astype(np.float16), fov=r["fov"],
+            masks=np.packbits(masks, axis=0), mask_shape=np.array(masks.shape),
+            crop_rows=np.array(crop_rows(r["masks"], base.column_mm)),
+            params=json.dumps({a: (None if not np.isfinite(b) else b) for a, b in p.items()}),
+            annotated=np.array([r["annotated"][c] for c in channels]),
+            arch_source=arch.get("source", "teeth"))
 
 
 if __name__ == "__main__":
