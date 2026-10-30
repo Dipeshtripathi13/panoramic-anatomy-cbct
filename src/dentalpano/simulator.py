@@ -46,8 +46,8 @@ CHANNELS = {
 class SimConfig:
     voxel_mm: float = 0.3
     column_mm: float = 0.3            # arclength step between columns
-    arch_poly_deg: int = 4
-    arch_extend_mm: float = 15.0      # extension beyond the last teeth along the end tangent
+    arch_smooth_deg: float = 6.0      # Gaussian smoothing of the polar arch radius ρ(θ)
+    arch_extend_mm: float = 10.0      # straight extension beyond the arch data along the end tangent
     mpr_halfwidth_mm: float = 12.0
     simpx_K: int = 200
     simpx_ray_mult: float = 0.5       # ray length = mult * axial diagonal of the volume
@@ -61,9 +61,6 @@ class SimConfig:
 
 
 # ---------------------------------------------------------------- arch curve
-MIN_TEETH_FOR_ARCH = 6
-
-
 def alveolar_crest_k(lab: np.ndarray, voxel_mm: float = 0.3) -> float | None:
     """Height (k, LPS: superior = larger) of the anterior mandibular crest: top of the mandible within
     15 mm of its most anterior point. None if there is no mandible label."""
@@ -74,52 +71,74 @@ def alveolar_crest_k(lab: np.ndarray, voxel_mm: float = 0.3) -> float | None:
     return float(np.percentile(kk[front], 98))
 
 
-def arch_points_2d(lab: np.ndarray, voxel_mm: float = 0.3) -> tuple[np.ndarray, np.ndarray, str]:
-    """(i, j) pixels that define the arch: tooth/prosthesis labels; with < MIN_TEETH_FOR_ARCH teeth
-    (edentulous or nearly), also the mandibular body in a 15 mm slab below the alveolar crest."""
-    teeth3d = np.isin(lab, TOOTH_IDS + [8, 9, 10])
-    n_teeth = int(np.isin(TOOTH_IDS, np.unique(lab)).sum())
-    teeth = teeth3d.any(axis=2)
-    source = "teeth"
-    if n_teeth < MIN_TEETH_FOR_ARCH:
-        crest = alveolar_crest_k(lab, voxel_mm)
-        if crest is not None:
-            k0 = max(0, int(crest - 15.0 / voxel_mm))
-            body = (lab[:, :, k0: int(crest) + 1] == 1).any(axis=2)
-            teeth = teeth | body
-            source = f"mandible_slab+{n_teeth}_teeth"
-    ii, jj = np.nonzero(teeth)
-    return ii, jj, source
+def mandible_slab_2d(lab: np.ndarray, voxel_mm: float = 0.3, below_mm: float = 20.0, above_mm: float = 10.0):
+    """Axial projection of the mandible in a slab around the anterior alveolar crest
+    (body + lower rami, where the canal runs). None if there is no mandible label."""
+    crest = alveolar_crest_k(lab, voxel_mm)
+    if crest is None:
+        return None
+    k0 = max(0, int(crest - below_mm / voxel_mm))
+    k1 = min(lab.shape[2], int(crest + above_mm / voxel_mm) + 1)
+    m = (lab[:, :, k0:k1] == 1).any(axis=2)
+    return m if m.sum() >= 100 else None
 
 
 def fit_arch(lab: np.ndarray, cfg: SimConfig) -> dict:
-    """Arch curve in voxel (i, j) coordinates, resampled by arclength.
+    """Arch curve (focal-trough centre line) in voxel (i, j) coordinates, resampled by arclength.
 
-    Polar fit: around a centre behind the incisors (mean i; 75% of the way back in j),
-    take the median radius of tooth pixels per 2° of angle θ (θ = 0 anterior, ±90° lateral),
-    smooth ρ(θ) with a polynomial in θ, and map back. Unlike a polynomial j(i), this
-    follows the near-sagittal posterior segments.
+    Polar fit around a centre inside the mandibular U: for each 2° direction θ (0 = anterior), the
+    radius is the middle of the combined 5th–95th-percentile radial range of the TEETH and the
+    mandibular CANAL in that direction (so the trough holds both labelled structures); directions
+    with neither use the median of the MANDIBULAR BODY (slab around the alveolar crest), into the rami.
+    History: a teeth-only fit + straight extension missed the posterior canal in ~125/532 volumes;
+    a teeth-else-mandible fit fixed the canal but lost up to 29% of the teeth in 48 volumes.
+    ρ(θ) is smoothed with a Gaussian over θ (σ = cfg.arch_smooth_deg).
     """
-    ii, jj, source = arch_points_2d(lab, cfg.voxel_mm)
-    if len(ii) < 100:
-        raise ValueError(f"cannot fit arch: only {len(ii)} tooth/mandible pixels")
-    ci, cj = ii.mean(), jj.min() + 0.75 * (jj.max() - jj.min())
-    theta = np.arctan2(ii - ci, cj - jj)
-    rho = np.hypot(ii - ci, jj - cj)
+    teeth = np.isin(lab, TOOTH_IDS + [8, 9, 10]).any(axis=2)
+    mand = mandible_slab_2d(lab, cfg.voxel_mm)
+    ref = mand if mand is not None else teeth
+    ri, rj = np.nonzero(ref)
+    if len(ri) < 100:
+        raise ValueError(f"cannot fit arch: only {len(ri)} mandible/tooth pixels")
+    ci, cj = ri.mean(), rj.min() + 0.6 * (rj.max() - rj.min())
+
+    def polar(mask):
+        ii, jj = np.nonzero(mask)
+        return np.arctan2(ii - ci, cj - jj), np.hypot(ii - ci, jj - cj)
+
     edges = np.deg2rad(np.arange(-180, 181, 2))
-    idx = np.digitize(theta, edges)
-    tb, rb, wb = [], [], []
-    for b in np.unique(idx):
-        sel = idx == b
-        if sel.sum() >= 20:
-            tb.append(np.median(theta[sel]))
-            rb.append(np.median(rho[sel]))
-            wb.append(sel.sum())
-    tb, rb, wb = map(np.asarray, (tb, rb, wb))
-    coef = np.polyfit(tb, rb, cfg.arch_poly_deg, w=np.sqrt(wb))
-    th = np.linspace(tb.min(), tb.max(), 4000)
-    r = np.polyval(coef, th)
+    canal = np.isin(lab, (3, 4)).any(axis=2)
+    th_t, rho_t = polar(teeth)
+    th_c, rho_c = polar(canal)
+    th_m, rho_m = polar(mand) if mand is not None else (np.array([]), np.array([]))
+    bt, bc, bm = np.digitize(th_t, edges), np.digitize(th_c, edges), np.digitize(th_m, edges)
+    tb, rb, nteeth_bins = [], [], 0
+    for b in range(1, len(edges)):
+        st, sc, sm = bt == b, bc == b, bm == b
+        parts = [rho_t[st]] if st.sum() >= 20 else []
+        if sc.sum() >= 10:
+            parts.append(rho_c[sc])
+        if parts:
+            # centre the trough on the labelled structures in this direction (teeth and canal):
+            # middle of their combined 5th–95th percentile radial range
+            lo = min(np.percentile(x, 5) for x in parts)
+            hi = max(np.percentile(x, 95) for x in parts)
+            ths = np.concatenate([th_t[st], th_c[sc]]) if st.sum() >= 20 else th_c[sc]
+            tb.append(np.median(ths))
+            rb.append(0.5 * (lo + hi))
+            nteeth_bins += st.sum() >= 20
+        elif sm.sum() >= 30:
+            tb.append(np.median(th_m[sm]))
+            rb.append(np.median(rho_m[sm]))
+    if len(tb) < 10:
+        raise ValueError(f"cannot fit arch: only {len(tb)} angular bins")
+    tb, rb = np.asarray(tb), np.asarray(rb)
+    order = np.argsort(tb)
+    tb, rb = tb[order], rb[order]
+    th = np.linspace(tb[0], tb[-1], 4000)
+    r = ndimage.gaussian_filter1d(np.interp(th, tb, rb), np.deg2rad(cfg.arch_smooth_deg) / (th[1] - th[0]), mode="nearest")
     pts = np.stack([ci + r * np.sin(th), cj - r * np.cos(th)], 1)
+    source = "teeth" if nteeth_bins == len(tb) else ("mandible" if nteeth_bins == 0 else "teeth+mandible")
 
     ext = cfg.arch_extend_mm / cfg.voxel_mm
     t0 = pts[0] - pts[5]
@@ -141,7 +160,7 @@ def fit_arch(lab: np.ndarray, cfg: SimConfig) -> dict:
         N = -N
     if not (np.isfinite(P).all() and np.isfinite(N).all()) or len(P) < 50:
         raise ValueError(f"degenerate arch fit ({source}, {len(P)} points)")
-    return {"points": P, "normals": N, "length_mm": s_new[-1] * cfg.voxel_mm, "coef": coef, "source": source}
+    return {"points": P, "normals": N, "length_mm": s_new[-1] * cfg.voxel_mm, "source": source}
 
 
 # ---------------------------------------------------------------- sampling
@@ -197,3 +216,12 @@ def render(img: np.ndarray, lab: np.ndarray, cfg: SimConfig | None = None) -> di
         "arch": arch, "ray_half_mm": half * vx,
     }
 
+
+
+def arch_distance_map(arch: dict, shape_ij: tuple) -> np.ndarray:
+    """In-plane distance (voxels) from every (i, j) to the arch curve."""
+    curve = np.zeros(shape_ij, bool)
+    p = np.round(arch["points"]).astype(int)
+    ok = (p[:, 0] >= 0) & (p[:, 0] < shape_ij[0]) & (p[:, 1] >= 0) & (p[:, 1] < shape_ij[1])
+    curve[p[ok, 0], p[ok, 1]] = True
+    return ndimage.distance_transform_edt(~curve)

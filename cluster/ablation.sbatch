@@ -2,6 +2,7 @@
 # Leave-one-factor-out render sets for the DR ablation (contribution 2).
 # One array task = (factor, shard): 7 render-level factors × 4 shards = 28 tasks, at most 4 at once:
 #   sbatch --array=0-27%4 cluster/ablation.sbatch
+# Output set names are "${NAME_PREFIX}<factor>" (default abl_no_<factor>); e.g. NAME_PREFIX=abl_v2_no_ sbatch ...
 # Each set: train volumes × variants 1..4 with that factor at nominal. Same seeds as dr_main, so
 # abl_no_<f>/<case>_v<k> differs from dr_main/<case>_v<k> only in factor <f> (paired ablation).
 # Image-level factors (noise, processing) need no renders; they are ablated at training time.
@@ -24,5 +25,5 @@ cd "$PROJ/code"
 mkdir -p "$PROJ/renders" data
 [ -e data/renders ] || ln -s "$PROJ/renders" data/renders
 echo "factor=$F shard=$SHARD/$NSHARDS on $(hostname)"
-python scripts/render_dataset.py --name "abl_no_$F" --splits train --variants 4 --no-nominal \
+python scripts/render_dataset.py --name "${NAME_PREFIX:-abl_no_}$F" --splits train --variants 4 --no-nominal \
   --disable "$F" --shard "$SHARD" --nshards "$NSHARDS"

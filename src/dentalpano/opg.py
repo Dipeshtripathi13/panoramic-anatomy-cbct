@@ -50,7 +50,7 @@ OPG_CHANNELS = dict(CHANNELS, teeth=(TOOTH_IDS + PULP_IDS, 12.0))  # a tooth inc
 class OPGConfig:
     voxel_mm: float = 0.3
     column_mm: float = 0.3          # arch travel per time step
-    arch_extend_mm: float = 25.0
+    arch_extend_mm: float = 10.0       # arch data now reach into the rami (mandible-guided fit)
     beam: str = "curvature"         # "curvature" | "rotating" | "normal"
     r_min_mm: float = 15.0          # curvature mode: clip range for the rotation-centre distance
     r_max_mm: float = 80.0

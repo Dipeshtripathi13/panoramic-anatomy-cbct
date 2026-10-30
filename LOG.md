@@ -220,3 +220,22 @@
 - **To pursue:** ask the PI (Prof. Santosh) for an expert annotator; email the CONTACT authors for full panoramics + canal outlines.
   Public data: no expert panoramic sinus/pulp masks found. MMOral (github.com/isbrycee/OralGPT; built from TED3 + Do et al. 2024)
   lists canal/sinus, but those appear model-validated, not expert ground truth. Not usable as GT without checking.
+
+## 2026-10-30
+- **Ablation renders done:** array 1311640, 28/28 COMPLETED (~15 min each); 7 × 1497 files; no failures; renders total 3.0 GB.
+### Step 13: arch fit v3, canal truncation fixed (everything must be re-rendered)
+- New `scripts/canal_coverage.py`: fraction of 3D canal and tooth voxels within ±12 mm (in-plane) of the arch, per volume.
+- **v2 arch (teeth-only polar polynomial + 25 mm straight extension):** canal coverage < 60% on some side in **125/532** volumes
+  (< 90% in 193). Partially edentulous jaws: the teeth-only arch covers only the front, and its extensions turn inward
+  while the canal continues back into the rami. Teeth coverage ≥ 99.4% everywhere.
+- **Attempt 1 (teeth else mandible body, 6 mm deviation rule):** canals 100%, but teeth coverage dropped in 48 volumes (min 71%). Rejected.
+- **Final (v3):** per 2° direction, the radius is the middle of the combined 5–95th percentile radial range of TEETH and CANAL
+  (mandibular-body median where there is neither). Gaussian smoothing over θ (σ 6°) instead of a polynomial; centre inside
+  the mandibular U; 10 mm extension.
+  → **canal coverage 100% in 531/532** (P_381: 78% on one side, displaced/impacted teeth widen the radial range); **teeth ≥ 99.3% everywhere**.
+  - Beam obliquity rises slightly: median per-volume p95 within |s| ≤ 50 mm goes 4.2° → 6.6°, worst 22° → 23.5°.
+  - Arch length median 175 → 203 mm (now reaches into the rami, as on real panoramics).
+  - Phantom (F_010): in-trough beads 0.9 mm; incisor r = 18 mm (narrow trough), posterior wide.
+  - Renders checked: F_010, F_001, S_0015, P_204, P_026 show full canals and intact teeth.
+- **All existing renders (dr_main, nominal_test, abl_no_*) used the v2 arch → re-render everything as *_v2 sets.**
+  Old sets are kept until the user deletes them.
