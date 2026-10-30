@@ -239,3 +239,17 @@
   - Renders checked: F_010, F_001, S_0015, P_204, P_026 show full canals and intact teeth.
 - **All existing renders (dr_main, nominal_test, abl_no_*) used the v2 arch → re-render everything as *_v2 sets.**
   Old sets are kept until the user deletes them.
+### Step 14: training pipeline (`src/dentalpano/train/`, `scripts/train.py`, `configs/train/seg_v1.yaml`, `cluster/train.sbatch`)
+- **Data:** `SynthDataset` (renders; image-level DR on the fly; random crop 0.8–1.0 + horizontal flip with L/R channel swap,
+  FDI quadrants 1↔2, 3↔4) and `DentexDataset` (tooth polygons → teeth + 32 FDI channels).
+  Every item has a per-channel weight map (FOV, annotated flags, no real GT → 0).
+  DENTEX mapping verified: category_id_1 0–3 = FDI quadrant 1–4 (quadrant 1 on image left), category_id_2 0–7 = tooth 1–8.
+- **Real framing:** fixed crop x 0.10–0.90, y 0.15–0.97 for every real image, from tooth extents in the few-shot TRAIN pool
+  (x 0.18–0.86, y 0.07–0.92). No test labels used.
+- **Model:** smp U-Net, ResNet-34 ImageNet encoder, 1-channel input, 43 sigmoid outputs (11 structures + 32 FDI teeth).
+  Loss = masked BCE + soft Dice (Dice only where the structure is present). Checkpoint selection on SYNTHETIC val only (zero-shot);
+  real DENTEX val is logged but never used for selection. Added segmentation-models-pytorch 0.6.0 (lock updated).
+- **Bugs fixed during the smoke test:** real image float64 (NumPy 2 scalar promotion) broke MPS; `--set` overrides now accumulate (cluster job adds its own).
+- **Local learning check:** 12 train volumes × 3 renders (new arch), 40 epochs, MPS, ~6 min.
+  Synth val teeth Dice 0.11 → 0.80; canal_R 0.02 → 0.28 (still rising); **real DENTEX val teeth Dice 0.59 zero-shot**
+  (16 images; early indication only).

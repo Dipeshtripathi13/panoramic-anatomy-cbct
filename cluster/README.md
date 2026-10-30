@@ -49,3 +49,5 @@ $PROJ/                 # /home/santosh_lab/shared/dipesh/dental
 | finished job info | `sacct -j <jobid> --format=JobID,State,Elapsed,MaxRSS` |
 | interactive GPU | `srun --pty -p gpu --gres=gpu:volta:1 --cpus-per-task=8 --mem=32G bash` |
 | update code after editing on the Mac | Mac: `bash cluster/sync_to_cluster.sh code` |
+| train (after renders exist) | `sbatch cluster/train.sbatch --config configs/train/seg_v1.yaml` |
+| one-time encoder weight cache (login node) | `conda activate dental && python -c "import segmentation_models_pytorch as smp; smp.Unet('resnet34', encoder_weights='imagenet')"` |

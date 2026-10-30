@@ -1,0 +1,19 @@
+# Sim-only (zero-shot) multi-label segmentation, full domain randomisation.
+run_name: seg_v1_dr_full
+seed: 0
+channels: structures+teeth          # 11 structures + 32 FDI tooth channels (overlapping, sigmoid)
+size: [256, 640]                    # H, W after cropping; synthetic and real use the same canvas
+synth_train_sets: [dr_main_v2]
+synth_val_sets: [dr_main_v2]        # val split volumes, nominal variant v0 only
+image_factors: [noise, processing]  # image-level DR applied on the fly (an ablation removes one)
+real_train_frac: 0.0                # > 0 adds DENTEX few-shot train images (few-shot / real-only runs)
+real_repeat: 1
+select_on: synth                    # checkpoint selection on SYNTHETIC val only (zero-shot)
+encoder: resnet34
+pretrained: true
+epochs: 60
+batch_size: 16
+lr: 0.001
+weight_decay: 0.0001
+dice_weight: 1.0
+num_workers: 8
