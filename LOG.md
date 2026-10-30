@@ -253,3 +253,5 @@
 - **Local learning check:** 12 train volumes × 3 renders (new arch), 40 epochs, MPS, ~6 min.
   Synth val teeth Dice 0.11 → 0.80; canal_R 0.02 → 0.28 (still rising); **real DENTEX val teeth Dice 0.59 zero-shot**
   (16 images; early indication only).
+- Cluster smoke test 1315042 FAILED: DENTEX zips were never uploaded to the cluster. Fix: upload via `sync_to_cluster.sh dentex`;
+  `real_val=false` lets training start without them (real eval of checkpoints later).

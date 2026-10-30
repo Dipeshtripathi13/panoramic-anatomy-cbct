@@ -8,6 +8,7 @@ synth_val_sets: [dr_main_v2]        # val split volumes, nominal variant v0 only
 image_factors: [noise, processing]  # image-level DR applied on the fly (an ablation removes one)
 real_train_frac: 0.0                # > 0 adds DENTEX few-shot train images (few-shot / real-only runs)
 real_repeat: 1
+real_val: true                      # log DENTEX val Dice each epoch (needs the DENTEX zips on disk)
 select_on: synth                    # checkpoint selection on SYNTHETIC val only (zero-shot)
 encoder: resnet34
 pretrained: true

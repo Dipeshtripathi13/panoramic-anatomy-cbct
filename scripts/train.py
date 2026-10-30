@@ -94,15 +94,17 @@ def main() -> None:
     train_ds = ConcatDataset(train_sets)
     synth_val = SynthDataset(cfg["synth_val_sets"], split_tf3["val"], channels, size, train=False,
                              variants=[0]) if cfg.get("synth_val_sets") else None
-    real_val = DentexDataset(split_dx["val"], channels, size, train=False)
-    if cfg.get("real_val_limit"):
-        real_val = Subset(real_val, range(min(cfg["real_val_limit"], len(real_val))))
+    real_val = None
+    if cfg.get("real_val", True):
+        real_val = DentexDataset(split_dx["val"], channels, size, train=False)
+        if cfg.get("real_val_limit"):
+            real_val = Subset(real_val, range(min(cfg["real_val_limit"], len(real_val))))
 
     nw = cfg.get("num_workers", 4)
     mk = lambda ds, shuffle: DataLoader(ds, batch_size=cfg["batch_size"], shuffle=shuffle, num_workers=nw,
                                         drop_last=shuffle, persistent_workers=nw > 0)
     train_loader = mk(train_ds, True)
-    val_loaders = {"real": mk(real_val, False)}
+    val_loaders = {"real": mk(real_val, False)} if real_val is not None else {}
     if synth_val is not None:
         val_loaders["synth"] = mk(synth_val, False)
 
