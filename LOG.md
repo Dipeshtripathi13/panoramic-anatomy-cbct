@@ -257,3 +257,9 @@
   `real_val=false` lets training start without them (real eval of checkpoints later).
 - Cluster smoke test 1316185 (V100, `real_val=false`, 30 batches): COMPLETED in 1m44s; synth val teeth Dice 0.59 after 30 batches,
   canals 0 (expected this early). Pipeline works end to end on the cluster.
+- Full zero-shot run `seg_v1_dr_full` submitted (job 1318337, V100, real DENTEX val logged only). Ablation renders 18–27 released.
+- `scripts/evaluate.py` (+ `cluster/evaluate.sbatch`): test-set evaluation of a checkpoint. Real = DENTEX test images with tooth
+  polygons, **one per duplicate group → 187 images**; per-image Dice (teeth union, mean FDI) with 95% bootstrap CI; overlays.
+  Synth = TF3 test volumes in `nominal_test_v2`. Checked that the FDI quadrant layout matches between synth and DENTEX
+  (Q1 upper-left, Q2 upper-right, Q3 lower-right, Q4 lower-left in image). Local 12-volume model: real teeth Dice 0.62 (10 images),
+  FDI 0.02 (it barely predicts individual teeth yet — undertrained, not a convention mismatch).
