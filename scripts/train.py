@@ -109,7 +109,12 @@ def main() -> None:
         val_loaders["synth"] = mk(synth_val, False)
 
     dev = device()
-    model = build_model(len(channels), cfg.get("encoder", "resnet34"), cfg.get("pretrained", True)).to(dev)
+    model = build_model(len(channels), cfg.get("encoder", "resnet34"), cfg.get("pretrained", True))
+    if cfg.get("init_from"):                    # fine-tune from an earlier run's checkpoint (e.g. sim-pretrained)
+        ck = torch.load(cfg["init_from"], map_location="cpu", weights_only=False)
+        assert ck["channels"] == channels, "init_from checkpoint has different channels"
+        model.load_state_dict(ck["model"])
+    model = model.to(dev)
     opt = torch.optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=cfg.get("weight_decay", 1e-4))
     steps = cfg["epochs"] * len(train_loader)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=cfg["lr"], total_steps=max(steps, 1), pct_start=0.05)

@@ -263,3 +263,7 @@
   Synth = TF3 test volumes in `nominal_test_v2`. Checked that the FDI quadrant layout matches between synth and DENTEX
   (Q1 upper-left, Q2 upper-right, Q3 lower-right, Q4 lower-left in image). Local 12-volume model: real teeth Dice 0.62 (10 images),
   FDI 0.02 (it barely predicts individual teeth yet — undertrained, not a convention mismatch).
+- seg_v1 epoch 4: real DENTEX val teeth Dice 0.78 zero-shot; synth val teeth 0.83, canal L/R 0.65/0.70; ~2.3 min/epoch.
+- `init_from` in train.py (fine-tune from a checkpoint). Few-shot grid prepared: `configs/train/fewshot.yaml` +
+  `cluster/fewshot.sbatch` (real-only ImageNet init vs sim→real fine-tune × 1/5/10/25/50/100% of the 384 few-shot images;
+  same lr 3e-4 / 40 epochs for both arms; real_repeat keeps ~384 real samples per epoch; selection on real val).

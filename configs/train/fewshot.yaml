@@ -1,0 +1,22 @@
+# Few-shot on real DENTEX teeth: real-only (ImageNet init) vs sim→real (init_from the zero-shot run).
+# The label fraction and arm are set per task by cluster/fewshot.sbatch. Same lr/schedule for both arms.
+# Model selection on the real DENTEX val split (labelled real data exists in this setting).
+run_name: fewshot
+seed: 0
+channels: structures+teeth           # same head as the zero-shot model (non-teeth channels get no real loss)
+size: [256, 640]
+synth_train_sets: null
+synth_val_sets: null
+real_train_frac: 1.0
+real_repeat: 1                       # set per task so every run sees ~384 real samples per epoch
+real_val: true
+select_on: real
+encoder: resnet34
+pretrained: true
+init_from: null
+epochs: 40
+batch_size: 16
+lr: 0.0003
+weight_decay: 0.0001
+dice_weight: 1.0
+num_workers: 8
