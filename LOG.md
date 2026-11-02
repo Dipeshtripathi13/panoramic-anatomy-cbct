@@ -255,3 +255,5 @@
   (16 images; early indication only).
 - Cluster smoke test 1315042 FAILED: DENTEX zips were never uploaded to the cluster. Fix: upload via `sync_to_cluster.sh dentex`;
   `real_val=false` lets training start without them (real eval of checkpoints later).
+- Cluster smoke test 1316185 (V100, `real_val=false`, 30 batches): COMPLETED in 1m44s; synth val teeth Dice 0.59 after 30 batches,
+  canals 0 (expected this early). Pipeline works end to end on the cluster.
