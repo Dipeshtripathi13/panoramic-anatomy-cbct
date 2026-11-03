@@ -1,0 +1,24 @@
+# Per-factor DR ablation (paired). Reference = dr_main_v2 variants 1–4 with all factors on; each ablation swaps in
+# abl_v2_no_<factor> (same seeds/draws as dr_main_v2 v1–4, one factor at nominal) or drops one image-level factor.
+# Shorter schedule than seg_v1 (synth val peaked at ~4.4k steps there): 40 epochs × ~93 steps ≈ 3.7k steps.
+# Selection on synthetic val (dr_main_v2 v0, identical for every run); real DENTEX val logged only.
+run_name: abl_ref
+seed: 0
+channels: structures+teeth
+size: [256, 640]
+synth_train_sets: [dr_main_v2]
+synth_train_variants: [1, 2, 3, 4]
+synth_val_sets: [dr_main_v2]
+image_factors: [noise, processing]
+real_train_frac: 0.0
+real_repeat: 1
+real_val: true
+select_on: synth
+encoder: resnet34
+pretrained: true
+epochs: 40
+batch_size: 16
+lr: 0.001
+weight_decay: 0.0001
+dice_weight: 1.0
+num_workers: 8

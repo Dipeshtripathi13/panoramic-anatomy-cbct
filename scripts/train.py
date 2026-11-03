@@ -82,7 +82,8 @@ def main() -> None:
     train_sets = []
     if cfg.get("synth_train_sets"):
         train_sets.append(SynthDataset(cfg["synth_train_sets"], split_tf3["train"], channels, size, train=True,
-                                       image_factors=cfg.get("image_factors"), seed=cfg["seed"]))
+                                       image_factors=cfg.get("image_factors"), seed=cfg["seed"],
+                                       variants=cfg.get("synth_train_variants")))
     if cfg.get("real_train_frac", 0) > 0:
         names = sorted(split_dx["fewshot_train"])
         rng = np.random.default_rng(cfg["seed"])

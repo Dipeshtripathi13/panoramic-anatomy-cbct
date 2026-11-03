@@ -280,3 +280,9 @@
   best.pt = epoch 21. → Added boundary-insensitive tooth-level metrics to evaluate.py: detection rate (≥50% of the GT polygon
   covered by predicted tooth), FDI numbering accuracy (max-overlap channel among detected), per-number presence P/R/F1
   (area ≥ 300 px at 256×640); image-bootstrap CIs.
+- seg_v1 full curve: real val teeth max 0.787 at epoch 6, then 0.77–0.78 plateau; synth val mean peaks at epoch 21 (0.867) and
+  declines to 0.851 by epoch 59 (overfitting to 374 training volumes). → ~4k steps suffice.
+- **DR ablation training prepared** (`configs/train/ablation.yaml`, `cluster/ablation_train.sbatch`, new `synth_train_variants`):
+  paired design — reference = dr_main_v2 variants 1–4 (same seeds/draws as abl_v2_no_* v1–4, which differ only in the disabled
+  factor); 7 rendered-factor runs + 2 image-level (noise, processing) runs; 40 epochs (~3.7k steps); each task also runs
+  evaluate.py on the test sets. Seed 0 first; more seeds if differences are within noise.
