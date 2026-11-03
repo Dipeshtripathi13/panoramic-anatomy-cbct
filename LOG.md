@@ -271,3 +271,6 @@
   synth mean 0.851; real DENTEX val teeth 0.768 (already 0.778 at epoch 4, so no net real gain over the last ~55 epochs while synth kept improving
   → sim-to-real gap / mild overfitting to the simulator; to inspect with full log.csv). Best synth mean 0.867 (best.pt).
 - Ablation render tasks 18–27 COMPLETED → all 28 `abl_v2_no_*` render sets done.
+- **Zero-shot TEST results, seg_v1_dr_full best.pt** (eval job 1318761): real DENTEX test (187 images, one per dup group)
+  teeth Dice CI95 [0.765, 0.783]; FDI mean Dice 0.604 (median 0.632, CI95 [0.582, 0.626]).
+  Synth TF3 test (nominal_test_v2, 105 volumes): teeth 0.882, pulp 0.668, canal L/R 0.745/0.764, incisive 0.460, sinus 0.709.
