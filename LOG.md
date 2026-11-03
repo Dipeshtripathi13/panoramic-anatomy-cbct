@@ -274,3 +274,9 @@
 - **Zero-shot TEST results, seg_v1_dr_full best.pt** (eval job 1318761): real DENTEX test (187 images, one per dup group)
   teeth Dice CI95 [0.765, 0.783]; FDI mean Dice 0.604 (median 0.632, CI95 [0.582, 0.626]).
   Synth TF3 test (nominal_test_v2, 105 volumes): teeth 0.882, pulp 0.668, canal L/R 0.745/0.764, incisive 0.460, sinus 0.709.
+- Overlays of the zero-shot test (12 images): DENTEX GT polygons are coarse (straight edges, cover interproximal gaps) while
+  predictions follow tooth contours → Dice is capped by label coarseness; worst images 0.50–0.58 are full dentitions.
+  Predicted canals anatomically plausible on all 12 (below molar roots, rising into the ramus); predicted sinus fragmented.
+  best.pt = epoch 21. → Added boundary-insensitive tooth-level metrics to evaluate.py: detection rate (≥50% of the GT polygon
+  covered by predicted tooth), FDI numbering accuracy (max-overlap channel among detected), per-number presence P/R/F1
+  (area ≥ 300 px at 256×640); image-bootstrap CIs.

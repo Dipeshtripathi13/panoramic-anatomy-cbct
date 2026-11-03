@@ -4,6 +4,8 @@ Real:  DENTEX test images with tooth polygons (quadrant_enumeration subset), one
        → per-image Dice for the teeth union and the 32 FDI channels (mean over teeth present in GT or prediction),
        with 95% bootstrap CIs over images.
 Synth: TF3 test volumes from a nominal render set (default nominal_test_v2) → per-channel Dice.
+       DENTEX polygons are coarse (straight edges, cover interproximal gaps), which caps Dice, so tooth-level
+       metrics are reported too: detection rate, FDI numbering accuracy, per-number presence precision/recall/F1.
 Metrics are computed at the model canvas (cfg size, default 256×640), threshold 0.5.
 
 Outputs in <run>/eval_<ckpt>/: metrics.json, real_per_image.csv, overlays_real.png
@@ -50,6 +52,34 @@ def bootstrap_ci(x: np.ndarray, n: int = 2000, seed: int = 0) -> list[float]:
     return [round(float(v), 4) for v in np.percentile(means, [2.5, 97.5])]
 
 
+def tooth_level(pred: np.ndarray, gt: np.ndarray, teeth: np.ndarray, min_area: int = 300) -> dict:
+    """Boundary-insensitive tooth metrics for one image (pred/gt: [32, H, W] bool FDI masks, TOOTH_CHANNELS order;
+    teeth: predicted teeth-union mask). A GT tooth is detected if >= 50% of its polygon is covered by predicted
+    tooth (teeth union or any FDI channel); its number is correct if the
+    predicted FDI channel overlapping it most is its own. Presence: a channel counts as predicted if area >= min_area."""
+    anyp = pred.any(0) | teeth
+    n_gt = det = num_ok = 0
+    for j in range(gt.shape[0]):
+        g = gt[j]
+        if not g.any():
+            continue
+        n_gt += 1
+        if (anyp & g).sum() >= 0.5 * g.sum():
+            det += 1
+            num_ok += int(np.argmax((pred & g).sum((1, 2))) == j)
+    gp, pp = gt.any((1, 2)), pred.sum((1, 2)) >= min_area
+    return {"n_teeth_gt": n_gt, "n_detected": det, "n_number_ok": num_ok,
+            "pres_tp": int((gp & pp).sum()), "pres_fp": int((~gp & pp).sum()), "pres_fn": int((gp & ~pp).sum())}
+
+
+def ratio_ci(num: np.ndarray, den: np.ndarray, n: int = 2000, seed: int = 0) -> list[float]:
+    """95% bootstrap CI over images of sum(num) / sum(den)."""
+    rng = np.random.default_rng(seed)
+    idx = rng.integers(0, len(num), (n, len(num)))
+    r = num[idx].sum(1) / np.maximum(den[idx].sum(1), 1)
+    return [round(float(v), 4) for v in np.percentile(r, [2.5, 97.5])]
+
+
 @torch.no_grad()
 def predict(model, loader, dev):
     for img, tgt, wgt, names in loader:
@@ -92,11 +122,11 @@ def main() -> None:
         d = dice_scores(logits, tgt.to(dev), wgt.to(dev)).numpy()
         for k in range(len(fn)):
             fd = d[k, fdi_idx]
+            p = torch.sigmoid(logits[k]).cpu().numpy() > 0.5
             rows.append({"image": fn[k], "dice_teeth": float(d[k, ti]),
                          "dice_fdi_mean": float(np.nanmean(fd)) if np.isfinite(fd).any() else float("nan"),
-                         "n_teeth_gt": int((tgt[k, fdi_idx].sum((1, 2)) > 0).sum())})
+                         **tooth_level(p[fdi_idx], tgt[k, fdi_idx].numpy() > 0.5, p[ti])})
             if len(shown) < args.overlays:
-                p = torch.sigmoid(logits[k]).cpu().numpy() > 0.5
                 shown.append((fn[k], img[k, 0].numpy(), tgt[k, ti].numpy() > 0.5,
                               {c: p[channels.index(c)] for c in ("teeth", "canal_L", "canal_R", "sinus")
                                if c in channels}))
@@ -108,6 +138,14 @@ def main() -> None:
         x = np.array([r[key] for r in rows], float)
         metrics[f"real_{key}"] = {"mean": round(float(np.nanmean(x)), 4), "median": round(float(np.nanmedian(x)), 4),
                                   "ci95": bootstrap_ci(x), "n": int(np.isfinite(x).sum())}
+    col = lambda k: np.array([r[k] for r in rows], float)
+    tp, fp, fn_ = col("pres_tp"), col("pres_fp"), col("pres_fn")
+    for name, num, den in (("tooth_detection_rate", col("n_detected"), col("n_teeth_gt")),
+                           ("tooth_numbering_acc", col("n_number_ok"), col("n_detected")),
+                           ("presence_precision", tp, tp + fp), ("presence_recall", tp, tp + fn_)):
+        metrics[f"real_{name}"] = {"value": round(float(num.sum() / max(den.sum(), 1)), 4), "ci95": ratio_ci(num, den)}
+    metrics["real_presence_f1"] = round(float(2 * tp.sum() / max(2 * tp.sum() + fp.sum() + fn_.sum(), 1)), 4)
+    metrics["real_n_teeth_gt"] = int(col("n_teeth_gt").sum())
 
     # --- synthetic: TF3 test volumes, nominal renders ---
     root = dio.REPO / "data" / "renders" / args.synth_set
