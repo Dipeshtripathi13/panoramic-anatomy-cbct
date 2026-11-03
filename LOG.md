@@ -268,6 +268,6 @@
   `cluster/fewshot.sbatch` (real-only ImageNet init vs sim→real fine-tune × 1/5/10/25/50/100% of the 384 few-shot images;
   same lr 3e-4 / 40 epochs for both arms; real_repeat keeps ~384 real samples per epoch; selection on real val).
 - **seg_v1_dr_full finished** (job 1318337, 60 epochs, 2h18m on V100). Last epoch: synth val teeth 0.866, canal L/R 0.752/0.733,
-  synth mean 0.851; real DENTEX val teeth 0.768 (peaked ~0.78 around epoch 4 and then flat/slightly down while synth kept improving
+  synth mean 0.851; real DENTEX val teeth 0.768 (already 0.778 at epoch 4, so no net real gain over the last ~55 epochs while synth kept improving
   → sim-to-real gap / mild overfitting to the simulator; to inspect with full log.csv). Best synth mean 0.867 (best.pt).
 - Ablation render tasks 18–27 COMPLETED → all 28 `abl_v2_no_*` render sets done.
