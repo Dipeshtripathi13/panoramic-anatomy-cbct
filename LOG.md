@@ -288,3 +288,18 @@
   evaluate.py on the test sets. Seed 0 first; more seeds if differences are within noise.
 - `scripts/collect_results.py` (runs/summary.csv: best epoch, real val at best, test metrics per run) and
   `cluster/evaluate_missing.sbatch` (evaluates every run lacking eval_best, e.g. the few-shot grid, then collects).
+- **DR ablation, seed 0** (paired, dr_main_v2 v1–4, 40 epochs; real DENTEX TEST teeth Dice of best.pt / real VAL teeth mean over
+  epochs 15–39 ± sd, the latter less sensitive to which epoch is selected):
+  ref 0.731 / 0.728±0.010 · no_noise **0.386 / 0.382±0.066** · no_processing **0.707 / 0.673±0.019** · no_metal 0.778 / 0.751±0.016 ·
+  no_ghosts 0.764 / 0.740 · no_contrast 0.752 / 0.737 · no_arch_jitter 0.747 / 0.726 · no_blur_outside 0.744 / 0.724 ·
+  no_spine 0.740 / 0.724 · no_trough_width 0.727 / 0.731. Test detection: ref 0.834, no_noise 0.190, no_metal 0.924.
+  Reading (single seed): image-level noise is by far the most important factor, processing second; removing rendered
+  geometry factors changes real teeth by ≤ ±0.01 (val-avg), metal/ghosts removal looks *beneficial* (+0.01–0.02) → their ranges
+  may be too strong. Needs more seeds before any claim. Synthetic test is barely affected (no_noise even fits synth canals
+  better: 0.79/0.81 vs 0.71/0.76) — the factors matter for transfer, not for in-domain fit.
+  Note: ablation ref (4 variants, 40 ep) 0.731 vs seg_v1 (v0–v8, 60 ep) 0.775 test → more variants/nominal help.
+- **Few-shot val** (test eval pending, job 1330556), real val teeth at the selected epoch, real-only vs sim→real:
+  1% 0.805/0.852 · 5% 0.860/0.865 · 10% 0.875/0.867 · 25% 0.855/0.877 · 50% 0.870/0.881 · 100% 0.866/0.885.
+  sim→real best epochs are early (1–16): the sim init is already close; real-only needs all 40 epochs.
+  Real-only with 4 images already reaches val teeth 0.80 (it learns the coarse DENTEX polygon style; the zero-shot model
+  cannot, see overlays) → tooth Dice partly measures annotation style; detection/numbering are the fairer comparison.
