@@ -286,3 +286,5 @@
   paired design — reference = dr_main_v2 variants 1–4 (same seeds/draws as abl_v2_no_* v1–4, which differ only in the disabled
   factor); 7 rendered-factor runs + 2 image-level (noise, processing) runs; 40 epochs (~3.7k steps); each task also runs
   evaluate.py on the test sets. Seed 0 first; more seeds if differences are within noise.
+- `scripts/collect_results.py` (runs/summary.csv: best epoch, real val at best, test metrics per run) and
+  `cluster/evaluate_missing.sbatch` (evaluates every run lacking eval_best, e.g. the few-shot grid, then collects).
