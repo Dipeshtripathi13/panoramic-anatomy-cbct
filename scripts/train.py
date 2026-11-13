@@ -23,6 +23,7 @@ import yaml
 from torch.utils.data import ConcatDataset, DataLoader, Subset
 
 from dentalpano import io as dio
+from dentalpano.train.crops import CROP_CHANNELS, ContactDataset, SynthCropDataset
 from dentalpano.train.data import STRUCTURES, TOOTH_CHANNELS, DentexDataset, SynthDataset
 from dentalpano.train.model import build_model, device, dice_scores, masked_loss
 
@@ -40,6 +41,8 @@ def channel_list(spec):
         return list(STRUCTURES)
     if spec == "structures+teeth":
         return list(STRUCTURES) + list(TOOTH_CHANNELS)
+    if spec == "crop":
+        return list(CROP_CHANNELS)
     return list(spec)
 
 
@@ -59,6 +62,60 @@ def evaluate(model, loader, dev, channels, max_batches=None):
     return float(np.mean(losses)), per
 
 
+def pick_fraction(names, frac, seed):
+    names = sorted(names)
+    k = max(1, math.ceil(frac * len(names)))
+    return [names[i] for i in sorted(np.random.default_rng(seed).choice(len(names), k, replace=False).tolist())]
+
+
+def build_datasets(cfg, channels):
+    """(train datasets, synthetic val, real val). task 'pano' = full panoramics with DENTEX as the real domain;
+    task 'crop' = third-molar ROIs (channels molar, canal) with CONTACT as the real domain."""
+    split_tf3 = json.loads((dio.REPO / "splits" / "toothfairy3.json").read_text())
+    crop = cfg.get("task", "pano") == "crop"
+    size = cfg["size"] if crop else tuple(cfg["size"])
+    if crop:
+        split_real = json.loads((dio.REPO / "splits" / "contact.json").read_text())
+        synth = lambda sets, cases, **kw: SynthCropDataset(sets, cases, size, crop_px=cfg.get("crop_px", 75.0), **kw)
+        real = lambda ids, **kw: ContactDataset(ids, size, match_px=cfg.get("real_match_px"), **kw)
+        real_train_pool, real_val_ids = split_real["train"], split_real["val"]
+    else:
+        split_real = json.loads((dio.REPO / "splits" / "dentex.json").read_text())
+        synth = lambda sets, cases, **kw: SynthDataset(sets, cases, channels, size, **kw)
+        real = lambda ids, **kw: DentexDataset(ids, channels, size, **kw)
+        real_train_pool, real_val_ids = split_real["fewshot_train"], split_real["val"]
+    train_sets = []
+    if cfg.get("synth_train_sets"):
+        train_sets.append(synth(cfg["synth_train_sets"], split_tf3["train"], train=True, seed=cfg["seed"],
+                                image_factors=cfg.get("image_factors"), variants=cfg.get("synth_train_variants")))
+    if cfg.get("real_train_frac", 0) > 0:
+        ds = real(pick_fraction(real_train_pool, cfg["real_train_frac"], cfg["seed"]), train=True, seed=cfg["seed"])
+        train_sets.extend([ds] * max(1, int(cfg.get("real_repeat", 1))))
+    synth_val = synth(cfg["synth_val_sets"], split_tf3["val"], train=False,
+                      variants=[0]) if cfg.get("synth_val_sets") else None
+    real_val = None
+    if cfg.get("real_val", True):
+        real_val = real(real_val_ids, train=False)
+        if cfg.get("real_val_limit"):
+            real_val = Subset(real_val, range(min(cfg["real_val_limit"], len(real_val))))
+    return train_sets, synth_val, real_val
+
+
+def init_weights(model, ck, channels, head_map=None):
+    """Load an earlier checkpoint. Same channels → everything. Otherwise encoder + decoder, and each new head
+    channel listed in head_map is initialised as the mean of the named old channels (e.g. canal ← canal_L, canal_R)."""
+    if ck["channels"] == channels:
+        model.load_state_dict(ck["model"])
+        return
+    body = {k: v for k, v in ck["model"].items() if not k.startswith("segmentation_head")}
+    model.load_state_dict(body, strict=False)
+    for k, v in model.state_dict().items():
+        if k.startswith("segmentation_head") and k in ck["model"]:
+            for i, c in enumerate(channels):
+                if head_map and c in head_map:
+                    v[i] = torch.stack([ck["model"][k][ck["channels"].index(o)] for o in head_map[c]]).mean(0)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", required=True)
@@ -76,30 +133,8 @@ def main() -> None:
     channels = channel_list(cfg["channels"])
     (out / "config.json").write_text(json.dumps({**cfg, "channels_resolved": channels, "git": git}, indent=1, default=str))
 
-    split_tf3 = json.loads((dio.REPO / "splits" / "toothfairy3.json").read_text())
-    split_dx = json.loads((dio.REPO / "splits" / "dentex.json").read_text())
-    size = tuple(cfg["size"])
-    train_sets = []
-    if cfg.get("synth_train_sets"):
-        train_sets.append(SynthDataset(cfg["synth_train_sets"], split_tf3["train"], channels, size, train=True,
-                                       image_factors=cfg.get("image_factors"), seed=cfg["seed"],
-                                       variants=cfg.get("synth_train_variants")))
-    if cfg.get("real_train_frac", 0) > 0:
-        names = sorted(split_dx["fewshot_train"])
-        rng = np.random.default_rng(cfg["seed"])
-        k = max(1, math.ceil(cfg["real_train_frac"] * len(names)))
-        pick = sorted(rng.choice(len(names), k, replace=False).tolist())
-        real = DentexDataset([names[i] for i in pick], channels, size, train=True, seed=cfg["seed"])
-        reps = max(1, int(cfg.get("real_repeat", 1)))
-        train_sets.extend([real] * reps)
+    train_sets, synth_val, real_val = build_datasets(cfg, channels)
     train_ds = ConcatDataset(train_sets)
-    synth_val = SynthDataset(cfg["synth_val_sets"], split_tf3["val"], channels, size, train=False,
-                             variants=[0]) if cfg.get("synth_val_sets") else None
-    real_val = None
-    if cfg.get("real_val", True):
-        real_val = DentexDataset(split_dx["val"], channels, size, train=False)
-        if cfg.get("real_val_limit"):
-            real_val = Subset(real_val, range(min(cfg["real_val_limit"], len(real_val))))
 
     nw = cfg.get("num_workers", 4)
     mk = lambda ds, shuffle: DataLoader(ds, batch_size=cfg["batch_size"], shuffle=shuffle, num_workers=nw,
@@ -113,8 +148,7 @@ def main() -> None:
     model = build_model(len(channels), cfg.get("encoder", "resnet34"), cfg.get("pretrained", True))
     if cfg.get("init_from"):                    # fine-tune from an earlier run's checkpoint (e.g. sim-pretrained)
         ck = torch.load(cfg["init_from"], map_location="cpu", weights_only=False)
-        assert ck["channels"] == channels, "init_from checkpoint has different channels"
-        model.load_state_dict(ck["model"])
+        init_weights(model, ck, channels, cfg.get("init_head_map"))
     model = model.to(dev)
     opt = torch.optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=cfg.get("weight_decay", 1e-4))
     steps = cfg["epochs"] * len(train_loader)
@@ -164,7 +198,7 @@ def main() -> None:
                 w.writeheader()
             w.writerow(row)
         print(json.dumps({k: row[k] for k in row if k in ("epoch", "train_loss", "minutes") or k.endswith("dice_mean")
-                          or k.endswith("dice_teeth") or k.startswith("synth_dice_canal")}), flush=True)
+                          or k.endswith(("dice_teeth", "dice_molar", "dice_canal")) or k.startswith("synth_dice_canal")}), flush=True)
     print("best", sel_key, "dice_mean:", best, "→", out)
 
 

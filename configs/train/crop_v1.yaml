@@ -1,0 +1,27 @@
+# Third-molar ROI model (CONTACT-style crops): channels molar (lower third molar) + canal (IAC), sim-only (zero-shot).
+# Initialised from the zero-shot panoramic model (encoder + decoder; head molar ← tooth38/48, canal ← canal_L/R).
+# Selection on synthetic val crops; CONTACT val (156) logged only. Test = CONTACT official test (444), scripts/evaluate_contact.py.
+task: crop
+run_name: crop_v1
+seed: 0
+channels: crop
+size: 256                            # crops are resized to size × size
+crop_px: 75.0                        # synthetic crop side in render pixels (0.3 mm) ≈ CONTACT field of view; see crops.py
+real_match_px: 75                    # CONTACT images downsampled to the synthetic crop resolution before resizing
+synth_train_sets: [dr_main_v2]
+synth_val_sets: [dr_main_v2]
+image_factors: [noise, processing]
+real_train_frac: 0.0
+real_repeat: 1
+real_val: true
+select_on: synth
+encoder: resnet34
+pretrained: true
+init_from: null                      # cluster: $PROJ/runs/seg_v1_dr_full/best.pt (set by the job)
+init_head_map: {molar: [tooth38, tooth48], canal: [canal_L, canal_R]}
+epochs: 30
+batch_size: 32
+lr: 0.0005
+weight_decay: 0.0001
+dice_weight: 1.0
+num_workers: 8

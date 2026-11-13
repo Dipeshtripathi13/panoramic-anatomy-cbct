@@ -315,3 +315,16 @@
   Headline: sim→real with 4 labelled images ≥ real-only with all 384 on FDI Dice (0.706 vs 0.714, ~equal), numbering
   (0.932 vs 0.902) and presence F1 (0.965 vs 0.960). Zero-shot numbering (0.899) ≈ real-only 100%. Teeth-union Dice gap is
   smaller (style of coarse polygons is learnable from few images). Single seed; detection ≥ 0.96 for all trained-on-real models.
+- **CONTACT evaluation (real canal + third molar) — crop model.** CONTACT crops cannot be fed to the panoramic model, so a
+  ROI model is trained on synthetic crops (`src/dentalpano/train/crops.py`, task `crop` in train.py, `configs/train/crop_v1.yaml`):
+  - Scale from data: CONTACT third molar ≈ 172×140 px of 227; synthetic lower third molar ≈ 54×51 px at 0.3 mm → crop ≈ 75 px
+    ≈ 23 mm; training jitters scale ×0.8–1.25 and position ±12%. CONTACT has both sides unflipped (canal slope sign 45/55%)
+    → random flips, side-agnostic channels molar (38/48) + canal (canal_L/R). Lower third molars: 38 in 284, 48 in 299 volumes.
+  - Synthetic crops are much blurrier (0.3 mm vs ~0.1 mm source) → optional resolution matching: CONTACT image area-downsampled
+    to 75 px first (`real_match_px`); evaluation reports matched and native.
+  - Init from seg_v1 best.pt (encoder + decoder; head molar ← mean(tooth38, tooth48), canal ← mean(canal_L, canal_R)).
+  - `scripts/evaluate_contact.py`: Dice molar/canal by group with CIs, plus a no-training 2D relation readout (predicted
+    molar∩canal overlap vs GT overlap; AUC of overlap fraction for contact, overall and group 1 vs 3).
+  - Local check (12 volumes, 25 epochs): CONTACT val molar 0.56 / canal 0.10–0.14 zero-shot. Note: CONTACT canal masks are wide
+    bands (cortical line to cortical line, ~35 px of 227) vs our projected lumen → canal Dice will be capped; to revisit.
+  - `cluster/crop_train.sbatch` trains + evaluates on the cluster.
