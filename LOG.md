@@ -303,3 +303,15 @@
   sim→real best epochs are early (1–16): the sim init is already close; real-only needs all 40 epochs.
   Real-only with 4 images already reaches val teeth 0.80 (it learns the coarse DENTEX polygon style; the zero-shot model
   cannot, see overlays) → tooth Dice partly measures annotation style; detection/numbering are the fairer comparison.
+- **Few-shot TEST results** (DENTEX test, 187 images; real-only ImageNet init vs sim→real init from seg_v1 best.pt; seed 0):
+  | labels | teeth Dice RO / S2R | FDI Dice RO / S2R | numbering acc RO / S2R | presence F1 RO / S2R |
+  | 0 (zero-shot) | – / 0.774 | – / 0.604 | – / 0.899 | – / 0.943 |
+  | 1% (4)   | 0.811 / 0.862 | 0.066 / 0.706 | 0.239 / 0.932 | 0.446 / 0.965 |
+  | 5% (20)  | 0.860 / 0.874 | 0.503 / 0.723 | 0.710 / 0.937 | 0.901 / 0.965 |
+  | 10% (39) | 0.878 / 0.876 | 0.569 / 0.731 | 0.712 / 0.939 | 0.928 / 0.969 |
+  | 25% (96) | 0.864 / 0.885 | 0.668 / 0.748 | 0.867 / 0.942 | 0.954 / 0.975 |
+  | 50% (192)| 0.877 / 0.891 | 0.678 / 0.760 | 0.813 / 0.950 | 0.951 / 0.975 |
+  | 100% (384)| 0.873 / 0.893 | 0.714 / 0.776 | 0.902 / 0.952 | 0.960 / 0.979 |
+  Headline: sim→real with 4 labelled images ≥ real-only with all 384 on FDI Dice (0.706 vs 0.714, ~equal), numbering
+  (0.932 vs 0.902) and presence F1 (0.965 vs 0.960). Zero-shot numbering (0.899) ≈ real-only 100%. Teeth-union Dice gap is
+  smaller (style of coarse polygons is learnable from few images). Single seed; detection ≥ 0.96 for all trained-on-real models.
