@@ -331,3 +331,19 @@
 - Seeds 1–2 of the DR ablation (20 runs) and few-shot grid (24 runs) COMPLETED. crop_v1 accidentally submitted twice (1330604 done,
   1332151 re-running into the same folder; its rows are the last 30 of log.csv). train.py now refuses an existing run folder
   (log.csv present) unless overwrite=true; evaluate_missing skips crop runs.
+- **DR ablation, 3 seeds** (real DENTEX test; Δ vs ref mean [min, max over seeds]):
+  ref teeth 0.734±0.004, numbering 0.911. no_noise teeth −0.436 [−0.547, −0.344]; no_processing −0.066 [−0.095, −0.023]
+  (both consistent in every seed). no_metal teeth **+0.033 [+0.022, +0.047]** (all seeds) but numbering −0.015;
+  no_blur_outside +0.026 [+0.013, +0.047]; no_ghosts +0.016; no_contrast/arch_jitter/spine/trough_width within ±0.011.
+  Numbering accuracy is LOWER without every rendered factor (−0.008 … −0.022; trough_width, ghosts, blur_outside negative in
+  all 3 seeds) → geometric DR helps tooth identity while metal/blur slightly hurt boundary Dice. Synth test canal barely moves
+  (0.72–0.74) except no_noise (0.80): noise trades in-domain fit for transfer.
+- **Few-shot, 3 seeds** (test; mean±sd): sim→real is better AND far more stable at every fraction. Numbering acc RO/S2R:
+  1% 0.263±0.025 / 0.933±0.006 · 5% 0.676±0.141 / 0.935±0.002 · 10% 0.686±0.206 / 0.940 · 25% 0.762±0.181 / 0.940 ·
+  50% 0.793±0.124 / 0.949 · 100% 0.801±0.183 / 0.950±0.002. FDI Dice 100%: 0.647±0.109 / 0.774±0.002; S2R 1%: 0.702±0.006.
+  Teeth Dice 100%: 0.874±0.014 / 0.894±0.000. Real-only's per-tooth results vary a lot between seeds (sd up to 0.2).
+- **CONTACT test, crop_v1 zero-shot** (best = epoch 7 on synth val; the duplicate job reproduced the run exactly): molar Dice
+  0.611 [0.585, 0.637] matched res. (native 0.607), canal 0.436 [0.415, 0.457] (native 0.422). By group molar 0.63/0.51/0.57.
+  Overlays: molar outlines often tight (0.85–0.95); failures = segments the neighbouring second molar or a blob when the crop
+  holds two molars; canal usually in the right place but CONTACT bands are wider. 2D overlap readout: contact AUC 0.51,
+  group 1 vs 3 AUC 0.47 → **chance, as expected**: projected overlap cannot tell true contact — motivates contribution 4.
