@@ -1,0 +1,25 @@
+# Few-shot contact on real CONTACT crops: real-only (ImageNet init) vs sim→real (init from contact_v1, which saw only
+# CBCT-derived labels). Fraction/arm set per task by cluster/contact_fewshot.sbatch. Both arms train the masks + contact head
+# on the chosen CONTACT train crops; selection on CONTACT val contact AUC (labelled real data exists in this setting).
+task: crop
+run_name: contact_fewshot
+seed: 0
+channels: crop
+size: 256
+real_match_px: 75
+synth_train_sets: null
+synth_val_sets: null
+real_train_frac: 1.0
+real_repeat: 1
+real_val: true
+contact_weight: 0.5
+select_metric: real_contact_auc
+encoder: resnet34
+pretrained: true
+init_from: null
+epochs: 30
+batch_size: 32
+lr: 0.0003
+weight_decay: 0.0001
+dice_weight: 1.0
+num_workers: 8

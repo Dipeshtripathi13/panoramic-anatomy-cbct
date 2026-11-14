@@ -368,3 +368,6 @@
   - Expert radiographic signs in the xlsx: sum of the 6 signs AUC 0.55 val / 0.54 test; best single sign = canal
     discontinuity 0.79 val / 0.72 test.
   → part of the gap is a harder official test set; val n=156 has a wide CI. Report test only; val is not used for selection.
+- Contact few-shot grid prepared (`configs/train/contact_fewshot.yaml`, `cluster/contact_fewshot.sbatch`): real-only (ImageNet)
+  vs sim→real (contact_v1) × 1/5/10/25/50/100% of the 878 CONTACT train crops; masks + contact head; selection on CONTACT val
+  contact AUC; each task evaluates on the CONTACT test.
