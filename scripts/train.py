@@ -25,7 +25,7 @@ from torch.utils.data import ConcatDataset, DataLoader, Subset
 from dentalpano import io as dio
 from dentalpano.train.crops import CROP_CHANNELS, ContactDataset, SynthCropDataset
 from dentalpano.train.data import STRUCTURES, TOOTH_CHANNELS, DentexDataset, SynthDataset
-from dentalpano.train.model import build_model, device, dice_scores, masked_loss
+from dentalpano.train.model import auc, build_model, contact_loss, device, dice_scores, forward, masked_loss
 
 
 def parse_overrides(pairs):
@@ -47,19 +47,27 @@ def channel_list(spec):
 
 
 def evaluate(model, loader, dev, channels, max_batches=None):
+    """(mean loss, per-channel Dice, extra metrics) — extra holds contact_auc when the model has a contact head."""
     model.eval()
-    scores, losses = [], []
+    scores, losses, cs, cy = [], [], [], []
     with torch.no_grad():
-        for b, (img, tgt, wgt, _) in enumerate(loader):
+        for b, batch in enumerate(loader):
             if max_batches and b >= max_batches:
                 break
-            img, tgt, wgt = img.to(dev), tgt.to(dev), wgt.to(dev)
-            logits = model(img)
+            img, tgt, wgt = (t.to(dev) for t in batch[:3])
+            logits, cl = forward(model, img)
             losses.append(masked_loss(logits, tgt, wgt)[0].item())
             scores.append(dice_scores(logits, tgt, wgt))
+            if cl is not None and len(batch) > 4:
+                cs.append(cl.float().cpu())
+                cy.append(batch[4])
     s = torch.cat(scores).numpy()
     per = {c: float(np.nanmean(s[:, k])) if np.isfinite(s[:, k]).any() else float("nan") for k, c in enumerate(channels)}
-    return float(np.mean(losses)), per
+    extra = {}
+    if cs:
+        score, y = torch.cat(cs).numpy(), torch.cat(cy).numpy()
+        extra["contact_auc"] = auc(score[y >= 0], y[y >= 0])
+    return float(np.mean(losses)), per, extra
 
 
 def pick_fraction(names, frac, seed):
@@ -105,7 +113,8 @@ def init_weights(model, ck, channels, head_map=None):
     """Load an earlier checkpoint. Same channels → everything. Otherwise encoder + decoder, and each new head
     channel listed in head_map is initialised as the mean of the named old channels (e.g. canal ← canal_L, canal_R)."""
     if ck["channels"] == channels:
-        model.load_state_dict(ck["model"])
+        missing, unexpected = model.load_state_dict(ck["model"], strict=False)   # e.g. a new contact head
+        assert all(k.startswith("classification_head") for k in missing + unexpected), (missing, unexpected)
         return
     body = {k: v for k, v in ck["model"].items() if not k.startswith("segmentation_head")}
     model.load_state_dict(body, strict=False)
@@ -148,7 +157,8 @@ def main() -> None:
         val_loaders["synth"] = mk(synth_val, False)
 
     dev = device()
-    model = build_model(len(channels), cfg.get("encoder", "resnet34"), cfg.get("pretrained", True))
+    model = build_model(len(channels), cfg.get("encoder", "resnet34"), cfg.get("pretrained", True),
+                        contact_head=cfg.get("contact_weight", 0) > 0)
     if cfg.get("init_from"):                    # fine-tune from an earlier run's checkpoint (e.g. sim-pretrained)
         ck = torch.load(cfg["init_from"], map_location="cpu", weights_only=False)
         init_weights(model, ck, channels, cfg.get("init_head_map"))
@@ -161,19 +171,21 @@ def main() -> None:
 
     log_path = out / "log.csv"
     best, t0 = -1.0, time.time()
-    sel_key = cfg.get("select_on", "synth")
+    sel_key = cfg.get("select_metric", f'{cfg.get("select_on", "synth")}_dice_mean')
     for epoch in range(cfg["epochs"]):
         for ds in train_sets:
             ds.epoch = epoch
         model.train()
         tl = []
-        for b, (img, tgt, wgt, _) in enumerate(train_loader):
+        for b, batch in enumerate(train_loader):
             if cfg.get("max_train_batches") and b >= cfg["max_train_batches"]:
                 break
-            img, tgt, wgt = img.to(dev), tgt.to(dev), wgt.to(dev)
+            img, tgt, wgt = (t.to(dev) for t in batch[:3])
             with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=use_amp):
-                logits = model(img)
+                logits, cl = forward(model, img)
             loss, parts = masked_loss(logits.float(), tgt, wgt, cfg.get("dice_weight", 1.0))
+            if cl is not None and len(batch) > 4:
+                loss = loss + cfg["contact_weight"] * contact_loss(cl.float(), batch[4].float().to(dev))
             opt.zero_grad(set_to_none=True)
             scaler.scale(loss).backward()
             scaler.step(opt)
@@ -182,14 +194,15 @@ def main() -> None:
             tl.append(loss.item())
         row = {"epoch": epoch, "train_loss": float(np.mean(tl)), "minutes": round((time.time() - t0) / 60, 2)}
         for name, loader in val_loaders.items():
-            vl, per = evaluate(model, loader, dev, channels, cfg.get("max_val_batches"))
+            vl, per, extra = evaluate(model, loader, dev, channels, cfg.get("max_val_batches"))
             row[f"{name}_loss"] = vl
+            row.update({f"{name}_{k}": round(v, 4) for k, v in extra.items()})
             for c, v in per.items():
                 if np.isfinite(v):
                     row[f"{name}_dice_{c}"] = round(v, 4)
             finite = [v for v in per.values() if np.isfinite(v)]
             row[f"{name}_dice_mean"] = round(float(np.mean(finite)), 4) if finite else float("nan")
-        score = row.get(f"{sel_key}_dice_mean", float("nan"))
+        score = row.get(sel_key, float("nan"))
         if np.isfinite(score) and score > best:
             best = score
             torch.save({"model": model.state_dict(), "channels": channels, "epoch": epoch, "cfg": cfg}, out / "best.pt")
@@ -201,8 +214,9 @@ def main() -> None:
                 w.writeheader()
             w.writerow(row)
         print(json.dumps({k: row[k] for k in row if k in ("epoch", "train_loss", "minutes") or k.endswith("dice_mean")
-                          or k.endswith(("dice_teeth", "dice_molar", "dice_canal")) or k.startswith("synth_dice_canal")}), flush=True)
-    print("best", sel_key, "dice_mean:", best, "→", out)
+                          or k.endswith(("dice_teeth", "dice_molar", "dice_canal", "contact_auc"))
+                          or k.startswith("synth_dice_canal")}), flush=True)
+    print("best", sel_key, ":", best, "→", out)
 
 
 if __name__ == "__main__":

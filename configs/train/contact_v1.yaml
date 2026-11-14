@@ -1,0 +1,28 @@
+# Contribution 4: third-molar ROI model + image-level contact head, trained ONLY on synthetic crops whose contact labels
+# come from the CBCT (3D min tooth–canal distance ≤ 0.52 mm, scripts/contact_labels.py → data/derived/contact3d.json).
+# Initialised from the zero-shot crop model (crop_v1). Selection on synthetic val contact AUC; CONTACT val logged only.
+# Test: scripts/evaluate_contact.py on the CONTACT official test (contact AUC overall and group 1 vs 3).
+task: crop
+run_name: contact_v1
+seed: 0
+channels: crop
+size: 256
+crop_px: 75.0
+real_match_px: 75
+synth_train_sets: [dr_main_v2]
+synth_val_sets: [dr_main_v2]
+image_factors: [noise, processing]
+real_train_frac: 0.0
+real_repeat: 1
+real_val: true
+contact_weight: 0.5
+select_metric: synth_contact_auc
+encoder: resnet34
+pretrained: true
+init_from: null                      # cluster: $PROJ/runs/crop_v1/best.pt (set by the job)
+epochs: 30
+batch_size: 32
+lr: 0.0005
+weight_decay: 0.0001
+dice_weight: 1.0
+num_workers: 8

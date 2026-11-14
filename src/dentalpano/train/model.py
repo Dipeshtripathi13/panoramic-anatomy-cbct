@@ -6,10 +6,39 @@ import torch
 import torch.nn.functional as F
 
 
-def build_model(n_channels: int, encoder: str = "resnet34", pretrained: bool = True) -> torch.nn.Module:
-    """U-Net with one sigmoid output per channel (channels overlap, so not a softmax)."""
+def build_model(n_channels: int, encoder: str = "resnet34", pretrained: bool = True,
+                contact_head: bool = False) -> torch.nn.Module:
+    """U-Net with one sigmoid output per channel (channels overlap, so not a softmax). contact_head adds an image-level
+    logit (third-molar root ↔ canal contact) on the encoder bottleneck; the model then returns (masks, logit)."""
+    aux = {"classes": 1, "dropout": 0.2} if contact_head else None
     return smp.Unet(encoder_name=encoder, encoder_weights="imagenet" if pretrained else None,
-                    in_channels=1, classes=n_channels)
+                    in_channels=1, classes=n_channels, aux_params=aux)
+
+
+def forward(model, img):
+    """(segmentation logits, contact logit [B] or None) for models with or without the contact head."""
+    out = model(img)
+    if isinstance(out, tuple):
+        return out[0], out[1][:, 0]
+    return out, None
+
+
+def contact_loss(logit, y):
+    """BCE over items with a known contact label (y >= 0); 0 if there are none."""
+    ok = y >= 0
+    if logit is None or not ok.any():
+        return torch.zeros((), device=y.device)
+    return F.binary_cross_entropy_with_logits(logit[ok], y[ok].float())
+
+
+def auc(score, label) -> float:
+    """Mann–Whitney AUC (ties count half); NaN unless both classes are present."""
+    import numpy as np
+    score, label = np.asarray(score, float), np.asarray(label)
+    pos, neg = score[label == 1], score[label == 0]
+    if len(pos) == 0 or len(neg) == 0:
+        return float("nan")
+    return float((pos[:, None] > neg[None]).mean() + 0.5 * (pos[:, None] == neg[None]).mean())
 
 
 def device() -> torch.device:

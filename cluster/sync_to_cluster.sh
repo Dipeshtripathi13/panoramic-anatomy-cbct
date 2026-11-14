@@ -20,9 +20,9 @@ else
 fi
 
 $SSH "$USER_AT_HOST" "mkdir -p '$REMOTE_PROJ/data_raw/Zenodo'"
-# code (no data, envs, outputs, renders)
+# code (no data, envs, outputs, renders) + data/derived (small label tables, e.g. contact3d.json)
 "${RS[@]}" -z -e "$SSH" \
-  --exclude '.venv/' --exclude 'data/' --exclude 'outputs/' --exclude 'external/' --exclude '*.zip' \
+  --include 'data/' --include 'data/derived/***' --exclude 'data/*' --exclude '.venv/' --exclude 'outputs/' --exclude 'external/' --exclude '*.zip' \
   --exclude 'Zenodo/' --exclude '__pycache__/' --exclude '.DS_Store' \
   "$LOCAL/" "$USER_AT_HOST:$REMOTE_PROJ/code/"
 

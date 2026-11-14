@@ -6,7 +6,9 @@ to one orientation). Matching synthetic crops are cut from the full renders arou
 0.3 mm, so a CONTACT crop ≈ 75 px ≈ 23 mm of the render (LOG.md); training jitters scale ±25% and position.
 Both domains are intensity-normalised per crop (normalise_real) so they share the same input statistics.
 
-Items are (image [1,S,S], target [2,S,S], weight [2,S,S], name); channels = CROP_CHANNELS.
+Items are (image [1,S,S], target [2,S,S], weight [2,S,S], name, contact); channels = CROP_CHANNELS.
+contact = 1/0 root↔canal contact (synthetic: 3D distance from scripts/contact_labels.py ≤ contact_mm;
+CONTACT: the xlsx Class), -1 if unknown.
 """
 from __future__ import annotations
 
@@ -25,6 +27,26 @@ from .. import randomize as DR
 from .data import IMAGE_FACTORS, _resize, augment_geometry, normalise_real
 
 CROP_CHANNELS = ["molar", "canal"]
+CONTACT_MM = 0.52     # labels touch, 26-connected at 0.3 mm (sqrt(3) * 0.3); see LOG.md
+
+
+def contact3d(path: Path | None = None) -> dict:
+    """case → side → min 3D tooth–canal distance (mm), from data/derived/contact3d.json (if present)."""
+    path = path or dio.REPO / "data" / "derived" / "contact3d.json"
+    if not path.exists():
+        return {}
+    return {c: {s: v["min_dist_mm"] for s, v in x.items() if v} for c, x in json.loads(path.read_text())["cases"].items()}
+
+
+def contact_table() -> dict[str, int]:
+    """'<official split>/<ImageNum>' → binary contact label, for every CONTACT crop."""
+    import pandas as pd
+    zf = dio.open_zip("contact")
+    out = {}
+    for split, (_, _, xlsx) in C.SPLITS.items():
+        df = pd.read_excel(zf.open(xlsx))
+        out.update({f"{split}/{n}": int(c) for n, c in zip(df.ImageNum, df.Class)})
+    return out
 SIDES = {"L": ("tooth38", "canal_L"), "R": ("tooth48", "canal_R")}
 
 
@@ -56,7 +78,8 @@ def cut(a: np.ndarray, r0: int, c0: int, s: int) -> np.ndarray:
 class SynthCropDataset(Dataset):
     def __init__(self, render_sets: list[str], cases: list[str] | None, size: int = 256, train: bool = True,
                  image_factors: list[str] | None = None, variants: list[int] | None = None, seed: int = 0,
-                 crop_px: float = 75.0, scale=(0.8, 1.25), shift: float = 0.12, root: Path | None = None):
+                 crop_px: float = 75.0, scale=(0.8, 1.25), shift: float = 0.12, root: Path | None = None,
+                 contact_mm: float = CONTACT_MM):
         root = root or dio.REPO / "data" / "renders"
         wanted = set(cases) if cases is not None else None
         self.meta, self.items, sides = {}, [], {}
@@ -78,6 +101,7 @@ class SynthCropDataset(Dataset):
         self.size, self.train, self.seed = (size, size), train, seed
         self.image_factors = IMAGE_FACTORS if image_factors is None else image_factors
         self.crop_px, self.scale, self.shift = crop_px, scale, shift
+        self.dist, self.contact_mm = contact3d(), contact_mm
         self.epoch = 0
 
     def __len__(self) -> int:
@@ -107,8 +131,10 @@ class SynthCropDataset(Dataset):
         img_t, tgt_t, wgt_t = torch.from_numpy(im)[None], torch.from_numpy(tgt), torch.from_numpy(wgt.copy())
         if self.train and rng.random() < 0.5:     # CONTACT has both sides unflipped; channels are side-agnostic
             img_t, tgt_t, wgt_t = img_t.flip(-1), tgt_t.flip(-1), wgt_t.flip(-1)
+        dist = self.dist.get(f.stem.rsplit("_v", 1)[0], {}).get(side)
+        contact = -1.0 if dist is None else float(dist <= self.contact_mm)
         return (_resize(img_t, self.size, "bilinear"), _resize(tgt_t, self.size, "nearest"),
-                _resize(wgt_t, self.size, "nearest"), f"{f.stem}_{side}")
+                _resize(wgt_t, self.size, "nearest"), f"{f.stem}_{side}", contact)
 
 
 class ContactDataset(Dataset):
@@ -118,6 +144,7 @@ class ContactDataset(Dataset):
 
     def __init__(self, ids: list[str], size: int = 256, train: bool = False, seed: int = 0, match_px: int | None = None):
         self.ids, self.size, self.train, self.seed, self.match_px = list(ids), (size, size), train, seed, match_px
+        self.labels = contact_table()
         self.epoch = 0
 
     def __len__(self) -> int:
@@ -135,4 +162,4 @@ class ContactDataset(Dataset):
             rng = np.random.default_rng([self.seed, self.epoch, i])
             img, tgt, wgt = augment_geometry(img, tgt, wgt, CROP_CHANNELS, rng, crop_frac=(0.85, 1.0))
         return (_resize(img, self.size, "bilinear"), _resize(tgt, self.size, "nearest"),
-                _resize(wgt, self.size, "nearest"), self.ids[i])
+                _resize(wgt, self.size, "nearest"), self.ids[i], float(self.labels[self.ids[i]]))

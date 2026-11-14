@@ -347,3 +347,13 @@
   Overlays: molar outlines often tight (0.85–0.95); failures = segments the neighbouring second molar or a blob when the crop
   holds two molars; canal usually in the right place but CONTACT bands are wider. 2D overlap readout: contact AUC 0.51,
   group 1 vs 3 AUC 0.47 → **chance, as expected**: projected overlap cannot tell true contact — motivates contribution 4.
+- **Contribution 4 — CBCT-derived contact labels** (`scripts/contact_labels.py` → `data/derived/contact3d.json`, 2 min locally):
+  per lower third molar (38↔canal 3, 48↔canal 4) the min 3D tooth–canal distance (EDT, true spacing, 15 mm margin) and the
+  fraction of tooth voxels within 0.5/1 mm. 583 molars (train 411 / val 58 / test 114). Distances: p25 0.30 (= labels touch),
+  median 1.41, p75 3.52 mm. Contact := labels touch incl. diagonally (≤ 0.52 mm = √3·0.3) → 183/583 = 31%
+  (face-adjacent only 27%; ≤ 1 mm 42% — sensitivity check later). CONTACT test is enriched: 330/444 contact.
+- **Contact head**: smp aux classification head on the encoder bottleneck (`build_model(contact_head=True)`), BCE on items with
+  a known label, weight 0.5; crop datasets now return the label (synthetic: 3D distance; CONTACT: xlsx Class). Val logs
+  `{synth,real}_contact_auc`; `select_metric: synth_contact_auc`. `evaluate_contact.py` adds head AUC (+ bootstrap CI),
+  group 1 vs 3 AUC, acc@0.5, mean prob per group. `configs/train/contact_v1.yaml` (init from crop_v1). The code sync now
+  carries `data/derived/`. Local smoke test OK (numbers meaningless at 12 volumes).
