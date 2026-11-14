@@ -357,3 +357,14 @@
   `{synth,real}_contact_auc`; `select_metric: synth_contact_auc`. `evaluate_contact.py` adds head AUC (+ bootstrap CI),
   group 1 vs 3 AUC, acc@0.5, mean prob per group. `configs/train/contact_v1.yaml` (init from crop_v1). The code sync now
   carries `data/derived/`. Local smoke test OK (numbers meaningless at 12 volumes).
+- **contact_v1 results** (synthetic-only contact head, CBCT labels; best = epoch 9 by synth val contact AUC 0.923):
+  CONTACT TEST (444) head AUC **0.596 [0.538, 0.656]** matched res. (native 0.605 [0.546, 0.665]); group 1 vs 3 AUC 0.575
+  (native 0.583); mean prob by group 0.60 / 0.43 / 0.52 (g1/g2/g3). 2D overlap readout of the same model: 0.540, g1v3 0.487.
+  Segmentation unchanged (molar 0.60, canal 0.48). BUT CONTACT VAL (156, logged only) contact AUC was 0.75–0.81 across epochs
+  (0.785 at epoch 9). Investigated the val→test gap:
+  - Same contact rate (0.74) and group mix in train/val/test.
+  - Test is intrinsically harder: AUC of the GT-mask overlap fraction 0.770 train / 0.763 val / 0.717 test (g1v3 0.66/0.65/0.60).
+  - Test crops slightly blurrier (median |Laplacian| 7.7 train / 7.9 val / 6.1 test; 50% vs 40% below 6).
+  - Expert radiographic signs in the xlsx: sum of the 6 signs AUC 0.55 val / 0.54 test; best single sign = canal
+    discontinuity 0.79 val / 0.72 test.
+  → part of the gap is a harder official test set; val n=156 has a wide CI. Report test only; val is not used for selection.
