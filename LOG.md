@@ -328,3 +328,6 @@
   - Local check (12 volumes, 25 epochs): CONTACT val molar 0.56 / canal 0.10–0.14 zero-shot. Note: CONTACT canal masks are wide
     bands (cortical line to cortical line, ~35 px of 227) vs our projected lumen → canal Dice will be capped; to revisit.
   - `cluster/crop_train.sbatch` trains + evaluates on the cluster.
+- Seeds 1–2 of the DR ablation (20 runs) and few-shot grid (24 runs) COMPLETED. crop_v1 accidentally submitted twice (1330604 done,
+  1332151 re-running into the same folder; its rows are the last 30 of log.csv). train.py now refuses an existing run folder
+  (log.csv present) unless overwrite=true; evaluate_missing skips crop runs.

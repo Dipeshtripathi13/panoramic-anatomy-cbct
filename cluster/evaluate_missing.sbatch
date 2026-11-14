@@ -18,6 +18,7 @@ cd "$PROJ/code"
 for run in "$PROJ"/runs/${1:-*}/; do
   run=${run%/}
   [ -f "$run/best.pt" ] && [ ! -f "$run/eval_best/metrics.json" ] || continue
+  grep -q '"task": "crop"' "$run/config.json" && continue      # crop runs: scripts/evaluate_contact.py
   echo "== $run"
   python scripts/evaluate.py --run "$run" --overlays 0 --num-workers $((SLURM_CPUS_PER_TASK - 2))
 done

@@ -129,6 +129,9 @@ def main() -> None:
 
     out = Path(cfg.get("out_root", dio.REPO / "outputs" / "runs")) / cfg["run_name"]
     out.mkdir(parents=True, exist_ok=True)
+    if (out / "log.csv").exists() and not cfg.get("overwrite", False):
+        raise SystemExit(f"{out} already has a log.csv — pick another run_name or pass overwrite=true")
+    (out / "log.csv").unlink(missing_ok=True)
     git = subprocess.run(["git", "rev-parse", "HEAD"], capture_output=True, text=True, cwd=dio.REPO).stdout.strip()
     channels = channel_list(cfg["channels"])
     (out / "config.json").write_text(json.dumps({**cfg, "channels_resolved": channels, "git": git}, indent=1, default=str))
