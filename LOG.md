@@ -391,3 +391,8 @@
   Open question: is our contact definition (labels touch, ≤ 0.52 mm on the canal LUMEN label) what CONTACT calls contact
   (CBCT-confirmed loss of the cortical border)? CONTACT's 74% contact rate vs our 31% suggests a looser threshold → sensitivity runs.
 - `contact_mm` is now a config key (synthetic contact threshold). Rates: ≤ 0.52 mm 33%, ≤ 1.0 42%, ≤ 1.5 52%, ≤ 2.0 59%.
+- **Contact threshold sensitivity** (contact_v1 retrained with contact_mm 1.0 / 2.0; CONTACT test head AUC matched [CI], g1v3;
+  CONTACT val AUC mean over epochs): 0.52 mm 0.596 [0.538, 0.656], 0.575, val 0.770 · 1.0 mm 0.564 [0.508, 0.622], 0.554,
+  val 0.747 · 2.0 mm 0.515 [0.457, 0.576], 0.521, val 0.674. Looser definitions transfer WORSE (validation agrees with test),
+  so the "CONTACT counts more contact → looser threshold" hypothesis is rejected. Keep the a-priori definition (labels touch,
+  ≤ 0.52 mm); report 1.0/2.0 as a sensitivity analysis. With 2 mm the head barely separates groups (mean prob 0.68/0.68/0.66).
