@@ -23,7 +23,7 @@ import yaml
 from torch.utils.data import ConcatDataset, DataLoader, Subset
 
 from dentalpano import io as dio
-from dentalpano.train.crops import CROP_CHANNELS, ContactDataset, SynthCropDataset
+from dentalpano.train.crops import CONTACT_MM, CROP_CHANNELS, ContactDataset, SynthCropDataset
 from dentalpano.train.data import STRUCTURES, TOOTH_CHANNELS, DentexDataset, SynthDataset
 from dentalpano.train.model import auc, build_model, contact_loss, device, dice_scores, forward, masked_loss
 
@@ -84,7 +84,8 @@ def build_datasets(cfg, channels):
     size = cfg["size"] if crop else tuple(cfg["size"])
     if crop:
         split_real = json.loads((dio.REPO / "splits" / "contact.json").read_text())
-        synth = lambda sets, cases, **kw: SynthCropDataset(sets, cases, size, crop_px=cfg.get("crop_px", 75.0), **kw)
+        synth = lambda sets, cases, **kw: SynthCropDataset(sets, cases, size, crop_px=cfg.get("crop_px", 75.0),
+                                                           contact_mm=cfg.get("contact_mm", CONTACT_MM), **kw)
         real = lambda ids, **kw: ContactDataset(ids, size, match_px=cfg.get("real_match_px"), **kw)
         real_train_pool, real_val_ids = split_real["train"], split_real["val"]
     else:

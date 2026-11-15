@@ -350,7 +350,7 @@
 - **Contribution 4 — CBCT-derived contact labels** (`scripts/contact_labels.py` → `data/derived/contact3d.json`, 2 min locally):
   per lower third molar (38↔canal 3, 48↔canal 4) the min 3D tooth–canal distance (EDT, true spacing, 15 mm margin) and the
   fraction of tooth voxels within 0.5/1 mm. 583 molars (train 411 / val 58 / test 114). Distances: p25 0.30 (= labels touch),
-  median 1.41, p75 3.52 mm. Contact := labels touch incl. diagonally (≤ 0.52 mm = √3·0.3) → 183/583 = 31%
+  median 1.41, p75 3.52 mm. Contact := labels touch incl. diagonally (≤ 0.52 mm = √3·0.3) → 195/583 = 33% (corrected; 183 = 31% was ≤ 0.5 mm)
   (face-adjacent only 27%; ≤ 1 mm 42% — sensitivity check later). CONTACT test is enriched: 330/444 contact.
 - **Contact head**: smp aux classification head on the encoder bottleneck (`build_model(contact_head=True)`), BCE on items with
   a known label, weight 0.5; crop datasets now return the label (synthetic: 3D distance; CONTACT: xlsx Class). Val logs
@@ -377,3 +377,17 @@
   affected (no augmentation; image and masks resized independently). Fix: downsample to match_px and upsample back to the
   original size before augmentation. Checked alignment (molar intensity contrast 0.29–0.30 in every mode) and a local run
   (CONTACT val molar 0.70 after 4 epochs). Invalid runs moved to runs/_invalid; grid to be rerun.
+- **Contact few-shot grid v2 (fixed), seed 0** — CONTACT test (444); contact head AUC RO / S2R (g1v3 RO / S2R); molar, canal Dice RO / S2R:
+  1% (9 crops) 0.461 / **0.591** (0.451 / 0.547); molar 0.752 / 0.801, canal 0.330 / **0.601**
+  5% (44)      0.528 / **0.605** (0.506 / 0.570); 0.858 / 0.860, 0.735 / 0.666
+  10% (88)     0.643 / 0.625 (0.612 / 0.570); 0.833 / 0.895, 0.680 / 0.747
+  25% (220)    **0.657** / 0.602 (0.625 / 0.553); 0.909 / 0.866, 0.811 / 0.713
+  50% (439)    **0.705** / 0.657 (0.656 / 0.594); 0.906 / 0.918, 0.786 / 0.816
+  100% (878)   **0.710** / 0.652 (0.656 / 0.595); 0.927 / 0.923, 0.843 / 0.834
+  CIs ≈ ±0.06 (single seed). Reading: CBCT pretraining helps contact only with ≤ 5% labels; from 10% real-only is equal or
+  better (≈ −0.05 for S2R at 25–100%, overlapping CIs) → the synthetic contact prior does not carry over well / may bias.
+  S2R val AUC 0.81–0.86 vs test 0.59–0.66 (RO val≈test from 50%) → the S2R head fits the CONTACT-train/val distribution but not
+  the harder official test. Segmentation: S2R clearly better at 1% (canal 0.60 vs 0.33), similar from 10%.
+  Open question: is our contact definition (labels touch, ≤ 0.52 mm on the canal LUMEN label) what CONTACT calls contact
+  (CBCT-confirmed loss of the cortical border)? CONTACT's 74% contact rate vs our 31% suggests a looser threshold → sensitivity runs.
+- `contact_mm` is now a config key (synthetic contact threshold). Rates: ≤ 0.52 mm 33%, ≤ 1.0 42%, ≤ 1.5 52%, ≤ 2.0 59%.
