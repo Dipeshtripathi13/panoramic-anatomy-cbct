@@ -24,6 +24,7 @@ from torch.utils.data import ConcatDataset, DataLoader, Subset
 
 from dentalpano import io as dio
 from dentalpano.train.crops import CONTACT_MM, CROP_CHANNELS, ContactDataset, SynthCropDataset
+from dentalpano.train.cyclegan import load_generator
 from dentalpano.train.data import STRUCTURES, TOOTH_CHANNELS, DentexDataset, SynthDataset
 from dentalpano.train.model import auc, build_model, contact_loss, device, dice_scores, forward, masked_loss
 
@@ -46,7 +47,7 @@ def channel_list(spec):
     return list(spec)
 
 
-def evaluate(model, loader, dev, channels, max_batches=None):
+def evaluate(model, loader, dev, channels, max_batches=None, pre=None):
     """(mean loss, per-channel Dice, extra metrics) — extra holds contact_auc when the model has a contact head."""
     model.eval()
     scores, losses, cs, cy = [], [], [], []
@@ -55,6 +56,8 @@ def evaluate(model, loader, dev, channels, max_batches=None):
             if max_batches and b >= max_batches:
                 break
             img, tgt, wgt = (t.to(dev) for t in batch[:3])
+            if pre is not None:
+                img = pre(img)
             logits, cl = forward(model, img)
             losses.append(masked_loss(logits, tgt, wgt)[0].item())
             scores.append(dice_scores(logits, tgt, wgt))
@@ -164,6 +167,11 @@ def main() -> None:
         ck = torch.load(cfg["init_from"], map_location="cpu", weights_only=False)
         init_weights(model, ck, channels, cfg.get("init_head_map"))
     model = model.to(dev)
+    translate = None
+    if cfg.get("synth_translate"):              # CycleGAN baseline: train/validate on G_AB(synthetic)
+        assert not cfg.get("real_train_frac"), "synth_translate assumes synthetic-only training batches"
+        G = load_generator(cfg["synth_translate"], dev)
+        translate = lambda x: G(x).clamp(0, 1)
     opt = torch.optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=cfg.get("weight_decay", 1e-4))
     steps = cfg["epochs"] * len(train_loader)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=cfg["lr"], total_steps=max(steps, 1), pct_start=0.05)
@@ -182,6 +190,9 @@ def main() -> None:
             if cfg.get("max_train_batches") and b >= cfg["max_train_batches"]:
                 break
             img, tgt, wgt = (t.to(dev) for t in batch[:3])
+            if translate is not None:
+                with torch.no_grad():
+                    img = translate(img)
             with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=use_amp):
                 logits, cl = forward(model, img)
             loss, parts = masked_loss(logits.float(), tgt, wgt, cfg.get("dice_weight", 1.0))
@@ -195,7 +206,8 @@ def main() -> None:
             tl.append(loss.item())
         row = {"epoch": epoch, "train_loss": float(np.mean(tl)), "minutes": round((time.time() - t0) / 60, 2)}
         for name, loader in val_loaders.items():
-            vl, per, extra = evaluate(model, loader, dev, channels, cfg.get("max_val_batches"))
+            vl, per, extra = evaluate(model, loader, dev, channels, cfg.get("max_val_batches"),
+                                      pre=translate if name == "synth" else None)
             row[f"{name}_loss"] = vl
             row.update({f"{name}_{k}": round(v, 4) for k, v in extra.items()})
             for c, v in per.items():

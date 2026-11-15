@@ -1,0 +1,17 @@
+# CycleGAN baseline (NeBLa-style): synthetic (TF3 train renders, image-level DR off) ↔ real DENTEX 'unlabelled' split.
+run_name: cyclegan_v1
+seed: 0
+size: [256, 640]                 # panoramic canvas (same as segmentation)
+crop: 256                        # random square training crops
+synth_sets: [dr_main_v2]
+image_factors: []                # nominal appearance: realism comes from the GAN only
+ngf: 64
+n_blocks: 9
+batch_size: 4
+lr: 0.0002
+iterations: 40000                # constant lr for the first half, linear decay to 0 over the second
+lambda_cycle: 10.0
+lambda_identity: 0.5
+log_every: 500
+save_every: 5000
+num_workers: 8

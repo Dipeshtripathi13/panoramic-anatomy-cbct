@@ -396,3 +396,10 @@
   val 0.747 · 2.0 mm 0.515 [0.457, 0.576], 0.521, val 0.674. Looser definitions transfer WORSE (validation agrees with test),
   so the "CONTACT counts more contact → looser threshold" hypothesis is rejected. Keep the a-priori definition (labels touch,
   ≤ 0.52 mm); report 1.0/2.0 as a sensitivity analysis. With 2 mm the head barely separates groups (mean prob 0.68/0.68/0.66).
+- **CycleGAN baseline built** (`src/dentalpano/train/cyclegan.py`, `scripts/train_cyclegan.py`, `configs/train/cyclegan_v1.yaml`,
+  `cluster/cyclegan.sbatch`): standard ResNet-9 generator / 70×70 PatchGAN, LSGAN, cycle 10, identity 0.5, pool 50, Adam 2e-4,
+  40k iterations (batch 4, random 256² crops; linear decay over the second half). A = TF3 train renders with image-level DR off;
+  B = DENTEX 'unlabelled' split (2098, groups disjoint from test; no labels). Segmentation: `synth_translate` in train.py applies
+  the frozen G_AB to every synthetic batch (train + synth val) → runs seg_cyclegan (CycleGAN only, image_factors []) and
+  seg_cyclegan_dr (image DR then CycleGAN), both with the seg_v1 schedule; compared with seg_v1 (DR only) on the DENTEX test.
+  Local smoke tests OK (~5 s/it on MPS incl. PNG decoding).

@@ -51,3 +51,13 @@ $PROJ/                 # /home/santosh_lab/shared/dipesh/dental
 | update code after editing on the Mac | Mac: `bash cluster/sync_to_cluster.sh code` |
 | train (after renders exist) | `sbatch cluster/train.sbatch --config configs/train/seg_v1.yaml` |
 | one-time encoder weight cache (login node) | `conda activate dental && python -c "import segmentation_models_pytorch as smp; smp.Unet('resnet34', encoder_weights='imagenet')"` |
+
+## CycleGAN baseline
+```bash
+jid=$(sbatch --parsable cluster/cyclegan.sbatch)                       # ~3-5 h
+G=$PROJ/runs/cyclegan_v1/cyclegan.pt
+sbatch --dependency=afterok:$jid cluster/train.sbatch --config configs/train/seg_v1.yaml \
+  --set run_name=seg_cyclegan image_factors='[]' synth_translate=$G      # CycleGAN only
+sbatch --dependency=afterok:$jid cluster/train.sbatch --config configs/train/seg_v1.yaml \
+  --set run_name=seg_cyclegan_dr synth_translate=$G                      # image DR + CycleGAN
+```
