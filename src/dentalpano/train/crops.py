@@ -154,8 +154,10 @@ class ContactDataset(Dataset):
         split, num = self.ids[i].split("/")
         c = C.load_case(dio.open_zip("contact"), split, int(num))
         img = torch.from_numpy(normalise_real(c["image"]))[None]
-        if self.match_px:
-            img = F.interpolate(img[None], size=(self.match_px, self.match_px), mode="area")[0]
+        if self.match_px:     # down to the synthetic resolution and back, so image and masks stay on one pixel grid
+            h, w = img.shape[-2:]
+            img = F.interpolate(img[None], size=(self.match_px, self.match_px), mode="area")
+            img = F.interpolate(img, size=(h, w), mode="bilinear", align_corners=False)[0]
         tgt = torch.from_numpy(np.stack([c["molar"], c["canal"]]).astype(np.float32))
         wgt = torch.ones_like(tgt)
         if self.train:

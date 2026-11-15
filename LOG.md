@@ -371,3 +371,9 @@
 - Contact few-shot grid prepared (`configs/train/contact_fewshot.yaml`, `cluster/contact_fewshot.sbatch`): real-only (ImageNet)
   vs sim→real (contact_v1) × 1/5/10/25/50/100% of the 878 CONTACT train crops; masks + contact head; selection on CONTACT val
   contact AUC; each task evaluates on the CONTACT test.
+- **BUG (fixed): contact few-shot grid v1 invalid.** With `real_match_px`, ContactDataset downsampled the image to 75 px but kept
+  masks at 227 px; in TRAINING, augment_geometry cropped both with the image's 75-px coordinates → masks were cut to their
+  top-left corner (molar Dice ~0.01 in all 12 runs). Eval-only uses (crop_v1, contact_v1, all evaluate_contact runs) were not
+  affected (no augmentation; image and masks resized independently). Fix: downsample to match_px and upsample back to the
+  original size before augmentation. Checked alignment (molar intensity contrast 0.29–0.30 in every mode) and a local run
+  (CONTACT val molar 0.70 after 4 epochs). Invalid runs moved to runs/_invalid; grid to be rerun.
