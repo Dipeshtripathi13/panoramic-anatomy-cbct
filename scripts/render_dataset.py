@@ -54,6 +54,8 @@ def main() -> None:
     ap.add_argument("--splits", nargs="+", default=["train", "val"])
     ap.add_argument("--variants", type=int, default=8, help="random variants per volume (plus nominal v0)")
     ap.add_argument("--disable", nargs="*", default=[], help="factors fixed at nominal (ablation)")
+    ap.add_argument("--override", nargs="*", default=[],
+                    help="sampling-range overrides param=u:lo:hi or param=logu:lo:hi (e.g. metal_scale=logu:0.8:1.5)")
     ap.add_argument("--no-nominal", action="store_true")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--limit", type=int, default=None)
@@ -73,12 +75,14 @@ def main() -> None:
     dirty = bool(subprocess.run(["git", "status", "--porcelain", "src", "scripts"], capture_output=True, text=True,
                                 cwd=dio.REPO).stdout)
     index_path = out / "index.json"
+    args.overrides = dict(kv.split("=", 1) for kv in args.override)
     meta = {"name": args.name, "splits": args.splits, "variants": args.variants, "enabled": sorted(enabled),
+            "overrides": args.overrides,
             "seed": args.seed, "channels": channels, "git": git, "dirty": dirty, "px_mm": base.column_mm}
     if index_path.exists():
         old = json.loads(index_path.read_text())
-        assert {k: old[k] for k in ("enabled", "seed", "channels")} == {k: meta[k] for k in ("enabled", "seed", "channels")}, \
-            "existing render set was made with different settings"
+        same = lambda d: (d["enabled"], d["seed"], d["channels"], d.get("overrides") or {})   # older sets: no overrides
+        assert same(old) == same(meta), "existing render set was made with different settings"
     tmp = out / f".index.{args.shard}.tmp"                 # atomic write: shards may start together
     tmp.write_text(json.dumps(meta, indent=1))
     tmp.replace(index_path)
@@ -112,7 +116,7 @@ def render_volume(case, todo, out, args, base, enabled, channels) -> None:
     labels = opg.prepare_labels(lab, base)          # once per volume, shared by all variants
     for k in todo:
         rng = np.random.default_rng(seed_for(args.seed, case, k))
-        p = DR.nominal() if k == 0 else DR.sample(rng, enabled)
+        p = DR.nominal() if k == 0 else DR.sample(rng, enabled, args.overrides)
         r = opg.render(None, lab, DR.opg_config(p, base), arch=DR.jitter_arch(arch, p), mu=DR.attenuation(img, lab, p, spine),
                        labels=labels)
         masks = np.stack([r["masks"][c] for c in channels])

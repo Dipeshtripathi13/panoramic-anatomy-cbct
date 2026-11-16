@@ -99,7 +99,8 @@ def build_datasets(cfg, channels):
     train_sets = []
     if cfg.get("synth_train_sets"):
         train_sets.append(synth(cfg["synth_train_sets"], split_tf3["train"], train=True, seed=cfg["seed"],
-                                image_factors=cfg.get("image_factors"), variants=cfg.get("synth_train_variants")))
+                                image_factors=cfg.get("image_factors"), variants=cfg.get("synth_train_variants"),
+                                **({"dr_overrides": cfg["dr_overrides"]} if cfg.get("dr_overrides") else {})))
     if cfg.get("real_train_frac", 0) > 0:
         ds = real(pick_fraction(real_train_pool, cfg["real_train_frac"], cfg["seed"]), train=True, seed=cfg["seed"])
         train_sets.extend([ds] * max(1, int(cfg.get("real_repeat", 1))))

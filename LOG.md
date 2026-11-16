@@ -417,3 +417,10 @@
   canal 0.36 / **0.61** · 5% 0.532 / **0.601**, 0.67 / 0.68 · 10% 0.616 / 0.621 · 25% **0.676** / 0.627 · 50% **0.710** / 0.649 ·
   100% **0.695** / 0.672. CBCT contact pretraining helps with ≤ 5% labels (≤ 44 crops; +0.13/+0.07 AUC, much lower variance);
   from 25% real-only is better (−0.02 … −0.06). Segmentation: S2R better at 1–5%, equal from 10%.
+- **Follow-up DR experiments prepared** (paired ablation protocol, 3 seeds; tasks 10–12 of `cluster/ablation_train.sbatch`):
+  - DR range overrides: `DR.sample(..., overrides={param: 'u|logu:lo:hi'})` keeps one draw per parameter, so all other
+    parameters stay identical (verified); `render_dataset.py --override`, `dr_overrides` in train configs; index.json records them.
+  - 10 metal_narrow: metal_scale logu(1, 3) → logu(0.8, 1.5); needs render set `abl_v2_metal_narrow` (train, v1–4, no nominal).
+  - 11 image_strong: photons 500–5e4 (was 2e3–5e4), read noise ≤ 2% (1%), PSF ≤ 0.8 mm (0.4), background σ 4–30 mm (6–25),
+    amount 0.4–0.98 (0.6–0.95), unsharp ≤ 2 (1), gamma 0.5–2 (0.7–1.4). Preview: outputs/dr_strong_preview.png (plausible).
+  - 12 no_metal_image_strong: abl_v2_no_metal renders + image_strong.

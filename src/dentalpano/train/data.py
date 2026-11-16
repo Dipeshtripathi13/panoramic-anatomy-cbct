@@ -67,9 +67,9 @@ def augment_geometry(img, tgt, wgt, channels, rng, crop_frac=(0.8, 1.0), flip_p=
 class SynthDataset(Dataset):
     def __init__(self, render_sets: list[str], cases: list[str] | None, channels: list[str], size=(256, 640),
                  train: bool = True, image_factors: list[str] | None = None, variants: list[int] | None = None,
-                 seed: int = 0, root: Path | None = None):
+                 seed: int = 0, root: Path | None = None, dr_overrides: dict | None = None):
         root = root or dio.REPO / "data" / "renders"
-        self.files, self.meta = [], {}
+        self.files, self.meta, self.dr_overrides = [], {}, dr_overrides
         wanted = set(cases) if cases is not None else None
         for name in render_sets:
             meta = json.loads((root / name / "index.json").read_text())
@@ -96,7 +96,7 @@ class SynthDataset(Dataset):
         m = np.unpackbits(d["masks"], axis=0)[:n].astype(bool)
         idx = [meta["channels"].index(c) for c in self.channels]
         r0, r1 = (int(v) for v in d["crop_rows"])
-        p = DR.sample(rng, set(self.image_factors)) if self.train else DR.nominal()
+        p = DR.sample(rng, set(self.image_factors), self.dr_overrides) if self.train else DR.nominal()
         img = DR.image_from_transmission(d["meanT"].astype(np.float32), p, meta["px_mm"], rng)[r0:r1]
         fov = d["fov"][r0:r1]
         ann = d["annotated"][idx]

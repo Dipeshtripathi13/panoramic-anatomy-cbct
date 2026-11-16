@@ -48,18 +48,29 @@ FACTORS = {
 }
 
 
-def sample(rng: np.random.Generator, enabled: set[str] | None = None) -> dict:
+def sampler_from_spec(spec) -> callable:
+    """'u:lo:hi' or 'logu:lo:hi' (or the same as a [kind, lo, hi] list) → sampler, for range overrides."""
+    kind, lo, hi = spec.split(":") if isinstance(spec, str) else spec
+    return {"u": U, "logu": LOGU}[kind](float(lo), float(hi))
+
+
+def sample(rng: np.random.Generator, enabled: set[str] | None = None, overrides: dict | None = None) -> dict:
     """Parameter dict: enabled factors are sampled, the rest are nominal.
 
     Every sampler is always drawn (in a fixed order) so that, for the same rng seed, an ablation
-    sample differs from the fully randomised one ONLY in the disabled factor (paired ablation)."""
+    sample differs from the fully randomised one ONLY in the disabled factor (paired ablation).
+    overrides: {param: range spec} replaces a parameter's sampling range (one draw per parameter as before,
+    so all other parameters keep exactly the same values)."""
     enabled = set(FACTORS) if enabled is None else set(enabled)
     unknown = enabled - set(FACTORS)
     assert not unknown, f"unknown factors {unknown}"
+    overrides = {k: sampler_from_spec(v) for k, v in (overrides or {}).items()}
+    known = {p for _, params in FACTORS.values() for p in params}
+    assert set(overrides) <= known, f"unknown parameters {set(overrides) - known}"
     out = {}
     for name, (_, params) in FACTORS.items():
         for p, (nominal, sampler) in params.items():
-            v = sampler(rng)
+            v = overrides.get(p, sampler)(rng)
             out[p] = v if name in enabled else nominal
     return out
 
