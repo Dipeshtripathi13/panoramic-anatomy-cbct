@@ -403,3 +403,17 @@
   the frozen G_AB to every synthetic batch (train + synth val) → runs seg_cyclegan (CycleGAN only, image_factors []) and
   seg_cyclegan_dr (image DR then CycleGAN), both with the seg_v1 schedule; compared with seg_v1 (DR only) on the DENTEX test.
   Local smoke tests OK (~5 s/it on MPS incl. PNG decoding).
+- **CycleGAN baseline results** (cyclegan_v1: 40k its, 8.3 h; seg_v1 schedule; DENTEX test):
+  | run | teeth Dice [CI] | FDI Dice | detection | numbering | presence F1 |
+  | seg_v1_dr_full (DR only)        | **0.774** [0.765, 0.783] | **0.604** | **0.912** | **0.899** | **0.943** |
+  | seg_cyclegan (CycleGAN only)    | 0.562 [0.548, 0.575] | 0.125 | 0.463 | 0.104 | 0.821 |
+  | seg_cyclegan_dr (DR + CycleGAN) | 0.509 [0.495, 0.522] | 0.145 | 0.344 | 0.216 | 0.721 |
+  Samples (samples_040000.png): translated images look convincingly real, but content is NOT preserved — e.g. a bright
+  restoration in the synthetic image disappears, tooth outlines/gaps change → synthetic masks no longer match the translated
+  image, which explains the collapse of per-tooth metrics (classic CycleGAN structure hallucination with unpaired data whose
+  content statistics differ). Physics-based DR beats image translation by +0.21 teeth Dice and +0.80 numbering accuracy.
+  Caveat: standard (NeBLa-style) CycleGAN, single run, no structure-preserving losses.
+- **Contact few-shot, 3 seeds** (CONTACT test head AUC RO / S2R; canal Dice RO / S2R): 1% 0.450±0.028 / **0.582±0.010**,
+  canal 0.36 / **0.61** · 5% 0.532 / **0.601**, 0.67 / 0.68 · 10% 0.616 / 0.621 · 25% **0.676** / 0.627 · 50% **0.710** / 0.649 ·
+  100% **0.695** / 0.672. CBCT contact pretraining helps with ≤ 5% labels (≤ 44 crops; +0.13/+0.07 AUC, much lower variance);
+  from 25% real-only is better (−0.02 … −0.06). Segmentation: S2R better at 1–5%, equal from 10%.
