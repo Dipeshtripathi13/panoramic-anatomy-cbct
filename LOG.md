@@ -424,3 +424,6 @@
   - 11 image_strong: photons 500–5e4 (was 2e3–5e4), read noise ≤ 2% (1%), PSF ≤ 0.8 mm (0.4), background σ 4–30 mm (6–25),
     amount 0.4–0.98 (0.6–0.95), unsharp ≤ 2 (1), gamma 0.5–2 (0.7–1.4). Preview: outputs/dr_strong_preview.png (plausible).
   - 12 no_metal_image_strong: abl_v2_no_metal renders + image_strong.
+- **Results draft**: `paper/results_draft.md` (text, numbers checked against tables) + `scripts/make_figures.py` →
+  outputs/paper/{tables.md, figures/fig_fewshot_dentex, fig_ablation, fig_cyclegan, fig_fewshot_contact (.png/.pdf)};
+  `*_DATA.png` figures contain dataset images and stay git-ignored.
