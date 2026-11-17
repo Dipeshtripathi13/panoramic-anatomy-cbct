@@ -293,10 +293,28 @@ def zero_shot(tables: list[str]) -> None:
                ""]
 
 
+def zero_shot_seeds(tables: list[str]) -> None:
+    arms = [("seg_v1 (original ranges)", ["seg_v1_dr_full", "seg_v1_dr_full_s1", "seg_v1_dr_full_s2"]),
+            ("seg_v2 (retuned ranges)", [f"seg_v2_dr_tuned_s{s}" for s in SEEDS])]
+    res = {lab: [jload(RUNS / r / "eval_best" / "metrics.json") for r in rs] for lab, rs in arms}
+    if not all(all(js) for js in res.values()):
+        return
+    real = [("real_dice_teeth", "mean", "teeth Dice"), ("real_dice_fdi_mean", "mean", "FDI Dice"),
+            ("real_tooth_detection_rate", "value", "detection"), ("real_tooth_numbering_acc", "value", "numbering")]
+    syn = ["teeth", "pulp", "canal_L", "canal_R", "incisive_canal", "sinus", "implant"]
+    cols = [(lambda j, k=k, s=s: j[k][s], f"DENTEX {t}") for k, s, t in real] + \
+           [(lambda j, c=c: j["synth_dice"][c], f"synth {c}") for c in syn]
+    rows = ["| Model | " + " | ".join(t for _, t in cols) + " |", "|---|" + "---|" * len(cols)]
+    for lab, js in res.items():
+        rows.append(f"| {lab} | " + " | ".join("{:.3f}±{:.3f}".format(*stats([f(j) for j in js])) for f, _ in cols) + " |")
+    tables += ["### Table G — Zero-shot, full schedule, 3 seeds (mean ± sd; DENTEX test + synthetic test)", *rows, ""]
+
+
 def main() -> None:
     FIG.mkdir(parents=True, exist_ok=True)
     tables: list[str] = []
     zero_shot(tables)
+    zero_shot_seeds(tables)
     dentex_fewshot(tables)
     ablation(tables)
     followup(tables)

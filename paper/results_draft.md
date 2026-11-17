@@ -11,7 +11,9 @@ A U-Net trained only on simulated panoramics rendered from 374 ToothFairy3 CBCT 
 randomization (DR), segments the teeth on 187 real DENTEX test panoramics with Dice 0.774 [95% CI 0.765, 0.783]
 (Table E). It also **enumerates** them: per-tooth FDI Dice is 0.604 [0.582, 0.626], 91.2% of annotated teeth are
 detected, and 89.9% [88.0, 91.8] of detected teeth receive the correct FDI number. The model never saw a real image or
-a real label.
+a real label. This is training seed 0, the model used to initialise every few-shot and CONTACT experiment. Over three
+training seeds, the same recipe gives teeth Dice 0.755 ± 0.020 and FDI Dice 0.582 ± 0.019, and seed 0 is the best of
+the three. Numbering accuracy is stable at 0.900 ± 0.001 (Table G).
 
 DENTEX tooth polygons are coarse: straight edges, and they include the gaps between teeth. Our predictions follow the
 tooth contours (Fig. `fig_dentex_overlays_DATA`), so Dice understates boundary quality. We therefore also report the
@@ -105,8 +107,22 @@ Fig. `fig_dr_followup`):
 So the image-level factors were under-randomized, and widening them is a free gain. Metal is a trade-off: less or no
 metal randomization improves the tooth outline, but lowers numbering slightly. On synthetic test volumes, implant Dice is
 lower in all four variants (0.54–0.61 vs 0.66). With no real implant labels and few implants in the synthetic test
-set, we keep metal randomization at the narrower range rather than removing it. *These are short-schedule runs; the
-headline zero-shot model (Section 1) uses the original ranges.*
+set, we keep metal randomization at the narrower range rather than removing it.
+
+**Full-schedule retrain.** We retrained the zero-shot model on the full schedule with the retuned ranges (narrower metal,
+wider image-level ranges; seg_v2) and compared it with the original recipe (seg_v1), 3 seeds each (Table G):
+
+* On real panoramics, seg_v2 is better and more stable: teeth Dice 0.773 ± 0.008 vs 0.755 ± 0.020, FDI Dice 0.598 vs
+  0.582, and detection 0.914 vs 0.871. Numbering accuracy is unchanged (0.895 vs 0.900).
+* On synthetic test volumes, seg_v2 is worse on the structures that have no real labels. The inferior alveolar canal
+  drops from 0.746 / 0.755 to 0.721 / 0.721 (left / right), pulp from 0.669 to 0.655, and implants from 0.687 to 0.573.
+  Teeth, sinus and incisive canal are unchanged. The synthetic test set is rendered at nominal appearance, so stronger
+  randomization may cost some fit to that appearance. Whether the canal loss carries over to real images is not measured
+  here.
+
+The retuned ranges therefore improve real tooth segmentation by about 0.02 Dice at the cost of some canal and implant
+accuracy. We keep seg_v1 as the headline model, because every downstream experiment starts from it and because canal
+accuracy matters for the contact task. We report seg_v2 as the better recipe for teeth.
 
 ## Limitations to state
 

@@ -442,3 +442,9 @@
   (train split, v0 + 8 variants, seed 0, `--override metal_scale=logu:0.8:1.5` → paired with dr_main_v2 except metal) +
   image_strong `dr_overrides`; selection set unchanged (dr_main_v2 v0). `cluster/seg_v2.sbatch`: tasks 0–2 seg_v2 seeds 0–2,
   tasks 3–4 seg_v1 seeds 1–2 (seg_v1 had only seed 0 → 3 vs 3 comparison). Local smoke test OK.
+- **seg_v2 vs seg_v1, full schedule, 3 seeds** (Table G; seg_v1 seeds 1–2 new, git 2747c03):
+  DENTEX teeth 0.755±0.020 → **0.773±0.008**, FDI 0.582 → 0.598, detection 0.871 → 0.914, numbering 0.900 → 0.895.
+  Synthetic test: teeth 0.883 → 0.881, canal L/R 0.746/0.755 → 0.721/0.721, pulp 0.669 → 0.655, implant 0.687 → 0.573,
+  sinus/incisive unchanged. NOTE: seg_v1 seed 0 (headline 0.774) is the best of its 3 seeds (others 0.757, 0.735) → draft
+  now also reports the 3-seed mean. Decision: keep seg_v1 s0 as headline/init (all downstream runs use it; canal matters
+  for contact); seg_v2 reported as the better teeth recipe. Open: does the synthetic canal drop transfer to real (CONTACT)?
