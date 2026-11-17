@@ -1,0 +1,23 @@
+# Retuned real-only baseline (reviewer-proofing the few-shot comparison). fewshot.yaml used the fine-tuning schedule
+# (lr 3e-4, 40 epochs) for both arms; real-only FDI Dice was still rising at epoch 40 (LOG.md). Here: ImageNet init,
+# lr 1e-3, 120 epochs (3× the steps), real val every 3rd epoch. Fraction/repeat/seed set by cluster/baselines.sbatch.
+run_name: realonly_v2
+seed: 0
+channels: structures+teeth
+size: [256, 640]
+synth_train_sets: null
+synth_val_sets: null
+real_train_frac: 1.0
+real_repeat: 1
+real_val: true
+select_on: real
+encoder: resnet34
+pretrained: true
+init_from: null
+epochs: 120
+val_every: 3
+batch_size: 16
+lr: 0.001
+weight_decay: 0.0001
+dice_weight: 1.0
+num_workers: 8

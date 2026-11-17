@@ -456,3 +456,13 @@
   → seg_v2's synthetic canal drop transfers to real crops. Decision: seg_v1 stays headline; ablation conclusions are
   teeth-centric (wider image DR hurts the thin canal). Also: crop_v1 seed 0 (used for contact_v1 + few-shot) is the weakest
   of 3 seeds (molar 0.611 vs 0.726/0.678) → draft reports the 3-seed mean next to it.
+- **Reviewer baselines prepared** (after the venue assessment): real-only few-shot was undertrained — with lr 3e-4/40 epochs its
+  val FDI Dice was still rising at epoch 40 (seed 1: 0.35 → 0.49 → 0.50 at epochs 19/29/39; train loss still falling).
+  - `configs/train/realonly_v2.yaml`: ImageNet init, lr 1e-3, 120 epochs, real val every 3rd epoch (new `val_every` in
+    train.py: skipped epochs only save last.pt and write no log row). 6 fractions × 3 seeds.
+  - `configs/train/seg_nominal.yaml`: no-DR (PXseg-style) baseline = dr_main_v2 v0 only, image_factors []; 540 epochs
+    (same steps as seg_v1), val every 9th (60 checkpoints, as seg_v1). Seeds 0–2 zero-shot, then few-shot from
+    seg_nominal_s0 with the fewshot.yaml schedule (6 fractions × 3 seeds) = fair comparison with sim2real.
+  - `cluster/baselines.sbatch` (MODE=realonly|nominal|nomfew; trains + test-evaluates). Local smoke tests OK.
+  - Paper: abstract + Table 2 now lead with 3-seed means (0.755 ± 0.020; seed 0 marked as the downstream init);
+    contribution 1 states that only teeth + canal are validated on real images.

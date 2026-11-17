@@ -20,10 +20,11 @@ We applied it to 532 ToothFairy3 CBCT volumes and projected their 3D labels into
 number), pulp, the inferior alveolar canal (IAC), the incisive canal, the maxillary sinus and restorations. A domain
 randomization scheme varies the panoramic-specific factors, metal, contrast, noise and vendor-style processing.
 
-A U-Net trained only on these renders segments and numbers teeth on 187 real DENTEX panoramics: teeth Dice 0.774
-[0.765, 0.783], 91.2% of teeth detected, and 89.9% of detected teeth given the correct FDI number. Fine-tuned on only
-four labelled real images, it reaches a numbering accuracy of 0.933. A model trained on all 384 real images from
-ImageNet initialisation reaches only 0.801 ± 0.183. A paired, per-factor ablation over three seeds shows that
+A U-Net trained only on these renders segments and numbers teeth on 187 real DENTEX panoramics. Over three training
+seeds it reaches a teeth Dice of 0.755 ± 0.020, detects 87% of teeth, and gives 90.0% ± 0.1% of detected teeth the
+correct FDI number. Fine-tuned on only four labelled real images, it reaches a numbering accuracy of 0.933. A model
+trained on all 384 real images from ImageNet initialisation reaches only 0.801 ± 0.183. [UPDATE with the retuned
+real-only baseline.] A paired, per-factor ablation over three seeds shows that
 image-level noise and processing matter most for transfer, while the panoramic geometry factors mainly help the model
 tell teeth apart. Physics-based randomization clearly beats CycleGAN image translation, because translation alters the
 anatomy the labels describe (numbering accuracy 0.899 vs 0.104).
@@ -71,7 +72,9 @@ This paper addresses that question. Our contributions are:
 
 1. **An open, physics-based panoramic simulator over ToothFairy3.** It models the rotational narrow-beam acquisition,
    including the focal trough, blur outside it, ghosts and the spine shadow. It projects overlapping multi-label masks for
-   32 teeth by FDI number, pulp, both IACs, incisive canals, the maxillary sinus, crowns, bridges and implants.
+   32 teeth by FDI number, pulp, both IACs, incisive canals, the maxillary sinus, crowns, bridges and implants. Public
+   real labels exist only for the teeth and the canal, so these two are validated on real images; the other structures
+   are evaluated on held-out synthetic data.
 2. **Panoramic-specific domain randomization with a paired per-factor ablation.** Nine factor groups are switched off
    one at a time with all other random draws held fixed, over three seeds. Follow-up experiments retune the most
    influential ranges.
@@ -327,9 +330,9 @@ comparison group 1 vs 3. Confidence intervals are 95% percentile bootstraps over
 ### 5.1 Zero-shot transfer
 
 Trained only on simulated panoramics, the model segments the teeth on the 187 real DENTEX test images with a Dice of
-0.774 [0.765, 0.783] (Table 2). It also numbers them: mean FDI Dice is 0.604 [0.582, 0.626], 91.2% of annotated teeth
-are detected, and 89.9% [88.0, 91.8] of detected teeth receive the correct FDI number. Presence F1 is 0.943. The model
-never saw a real image or a real label.
+0.755 ± 0.020 over three training seeds (Table 2). It also numbers them: mean FDI Dice is 0.582 ± 0.019, 87.1% of
+annotated teeth are detected, and 90.0% ± 0.1% of detected teeth receive the correct FDI number. Numbering accuracy is
+almost identical across seeds, while Dice and detection vary more. The model never saw a real image or a real label.
 
 Visual inspection explains much of the remaining Dice gap (`fig_dentex_overlays_DATA`). The predictions follow tooth
 contours and leave interproximal gaps empty. The DENTEX polygons are straight-edged and include those gaps. Dice
@@ -338,19 +341,19 @@ On the 105 held-out synthetic test volumes the model reaches a teeth Dice of 0.8
 sinus 0.709, pulp 0.668 and incisive canal 0.460. On real images the predicted canals are anatomically plausible: they
 run below the molar roots and rise into the ramus. Real canal accuracy is measured on CONTACT in Section 5.5.
 
-The reported model is training seed 0, which initialises all downstream experiments. Over three training seeds the same
-recipe gives a teeth Dice of 0.755 ± 0.020 and FDI Dice 0.582 ± 0.019; seed 0 is the best of the three. Numbering
-accuracy is stable at 0.900 ± 0.001 (Table 7).
+All downstream experiments (few-shot, crops, contact) start from training seed 0, which happens to be the best of the
+three seeds on DENTEX. We report its numbers with bootstrap confidence intervals alongside the mean, so that the
+starting point of those experiments is clear.
 
-| Measure (DENTEX test, 187 images) | Value [95% CI] |
-|---|---|
-| Teeth Dice | 0.774 [0.765, 0.783] |
-| FDI Dice (mean over teeth present) | 0.604 [0.582, 0.626] |
-| Tooth detection rate | 0.912 [0.895, 0.928] |
-| Numbering accuracy | 0.899 [0.880, 0.918] |
-| Presence F1 | 0.943 |
+| Measure (DENTEX test, 187 images) | Mean ± sd, 3 seeds | Seed 0 [95% CI] |
+|---|---|---|
+| Teeth Dice | 0.755 ± 0.020 | 0.774 [0.765, 0.783] |
+| FDI Dice (mean over teeth present) | 0.582 ± 0.019 | 0.604 [0.582, 0.626] |
+| Tooth detection rate | 0.871 ± 0.038 | 0.912 [0.895, 0.928] |
+| Numbering accuracy | 0.900 ± 0.001 | 0.899 [0.880, 0.918] |
+| Presence F1 | 0.929 ± 0.013 | 0.943 |
 
-*Table 2. Zero-shot results of the simulation-only model (seed 0).*
+*Table 2. Zero-shot results of the simulation-only model. Seed 0 initialises every downstream experiment.*
 
 ### 5.2 Few-shot: simulation replaces most real labels
 
@@ -367,7 +370,7 @@ handful of images; the identity of each tooth cannot.
 
 | Labelled images | Teeth Dice RO / S2R | FDI Dice RO / S2R | Numbering RO / S2R |
 |---|---|---|---|
-| 0 (zero-shot) | – / 0.774 | – / 0.604 | – / 0.899 |
+| 0 (zero-shot, seed 0) | – / 0.774 | – / 0.604 | – / 0.899 |
 | 4 (1%) | 0.749 ± 0.105 / **0.860 ± 0.013** | 0.064 ± 0.011 / **0.702 ± 0.006** | 0.263 ± 0.025 / **0.933 ± 0.006** |
 | 20 (5%) | 0.854 ± 0.018 / **0.875 ± 0.003** | 0.476 ± 0.067 / **0.720 ± 0.007** | 0.676 ± 0.141 / **0.935 ± 0.002** |
 | 39 (10%) | 0.866 ± 0.013 / **0.881 ± 0.004** | 0.533 ± 0.111 / **0.736 ± 0.005** | 0.686 ± 0.206 / **0.940 ± 0.001** |
@@ -449,7 +452,7 @@ structure-preserving losses.
 
 | Training images | Teeth Dice | FDI Dice | Detection | Numbering | Presence F1 |
 |---|---|---|---|---|---|
-| Physics-based DR (ours) | **0.774** | **0.604** | **0.912** | **0.899** | **0.943** |
+| Physics-based DR (ours, seed 0) | **0.774** | **0.604** | **0.912** | **0.899** | **0.943** |
 | CycleGAN-translated | 0.562 | 0.125 | 0.463 | 0.104 | 0.821 |
 | DR, then CycleGAN | 0.509 | 0.145 | 0.344 | 0.216 | 0.721 |
 

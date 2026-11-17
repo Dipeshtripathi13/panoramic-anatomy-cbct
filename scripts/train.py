@@ -206,6 +206,10 @@ def main() -> None:
             sched.step()
             tl.append(loss.item())
         row = {"epoch": epoch, "train_loss": float(np.mean(tl)), "minutes": round((time.time() - t0) / 60, 2)}
+        every = cfg.get("val_every", 1)      # long schedules validate (and can select) every k-th epoch + the last
+        if (epoch + 1) % every and epoch + 1 != cfg["epochs"]:
+            torch.save({"model": model.state_dict(), "channels": channels, "epoch": epoch, "cfg": cfg}, out / "last.pt")
+            continue
         for name, loader in val_loaders.items():
             vl, per, extra = evaluate(model, loader, dev, channels, cfg.get("max_val_batches"),
                                       pre=translate if name == "synth" else None)
