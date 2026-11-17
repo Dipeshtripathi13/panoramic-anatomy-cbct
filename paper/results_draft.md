@@ -50,7 +50,7 @@ reaches teeth Dice 0.734 ± 0.004 and numbering 0.911 ± 0.004.
   seeds for trough width, ghosts, blur outside the trough, arch jitter and spine). They help the model tell the teeth apart rather
   than outline them.
 * **Metal randomization, as configured, hurts**: removing it raises teeth Dice by +0.033 [+0.022, +0.047] in every seed
-  (numbering −0.015). Follow-up runs with a narrower metal range are in progress (Section 6).
+  (numbering −0.015). A narrower metal range recovers most but not all of this gain (Section 6).
 
 ## 4. Physics-based randomization vs. image translation (CycleGAN)
 
@@ -88,11 +88,25 @@ matching third-molar size), initialised from the panoramic model (Table D, Figs.
   models (0.81–0.86) is far above their test AUC. CONTACT's official test is harder than its train/validation pool
   (ground-truth-overlap AUC 0.717 vs 0.763), and its crops are somewhat blurrier.
 
-## 6. Follow-up (running)
+## 6. Follow-up: retuning the randomization ranges
 
-Two short experiments under the same paired ablation protocol (3 seeds each): a narrower metal range (×0.8–1.5
-instead of ×1–3), wider image-level ranges (the most important factors), and their combination with metal
-randomization off.
+The ablation suggested two changes, tested under the same paired protocol and schedule (3 seeds; Table F,
+Fig. `fig_dr_followup`):
+
+* **Narrower metal range** (×0.8–1.5 instead of ×1–3): teeth Dice +0.024 [+0.014, +0.031] and numbering −0.009. This is
+  better than the reference in every seed, but slightly below switching metal off entirely (+0.033). The original range
+  over-brightens restorations; most of the harm comes from its upper end.
+* **Wider image-level ranges** (photon count, read noise, detector blur, background subtraction, unsharp masking, gamma):
+  teeth Dice +0.031 [+0.020, +0.042] and per-tooth FDI Dice +0.033 (positive in every seed), with numbering unchanged
+  (+0.003). This is the only change that improves outline and per-tooth Dice without costing enumeration.
+* **Both together** (metal off + wider image ranges): the highest teeth Dice, 0.779 (+0.044 [+0.036, +0.058]). But
+  numbering falls by 0.017, negative in all three seeds.
+
+So the image-level factors were under-randomized, and widening them is a free gain. Metal is a trade-off: less or no
+metal randomization improves the tooth outline, but lowers numbering slightly. On synthetic test volumes, implant Dice is
+lower in all four variants (0.54–0.61 vs 0.66). With no real implant labels and few implants in the synthetic test
+set, we keep metal randomization at the narrower range rather than removing it. *These are short-schedule runs; the
+headline zero-shot model (Section 1) uses the original ranges.*
 
 ## Limitations to state
 

@@ -146,6 +146,53 @@ def ablation(tables: list[str]) -> None:
     tables += ["### Table B — DR ablation (DENTEX test, Δ vs. reference, 3 seeds)", *rows, ""]
 
 
+# ---------------------------------------------------------------- DR follow-up (changed ranges, same paired protocol)
+FOLLOW = [("no_metal", "Metal off"), ("metal_narrow", "Metal ×0.8–1.5 (was ×1–3)"),
+          ("image_strong", "Wider image-level ranges"), ("no_metal_image_strong", "Metal off + wider image ranges")]
+
+
+def followup(tables: list[str]) -> None:
+    get = lambda name, s: jload(RUNS / f"abl_{name}_s{s}" / "eval_best" / "metrics.json")
+    if not all(get(n, s) for n, _ in FOLLOW for s in SEEDS):
+        return
+    ref = {s: get("ref", s) for s in SEEDS}
+    keys = [("real_dice_teeth", "mean", "Δ teeth Dice"), ("real_dice_fdi_mean", "mean", "Δ per-tooth (FDI) Dice"),
+            ("real_tooth_numbering_acc", "value", "Δ numbering accuracy")]
+    d = {(n, k): np.array([get(n, s)[k][sub] - ref[s][k][sub] for s in SEEDS]) for n, _ in FOLLOW for k, sub, _ in keys}
+    fig, axes = plt.subplots(1, 3, figsize=(7.2, 1.9), sharey=True)
+    y = np.arange(len(FOLLOW))[::-1]
+    for ax, (k, sub, title) in zip(axes, keys):
+        mean = np.array([d[n, k].mean() for n, _ in FOLLOW])
+        ax.barh(y, mean, height=0.6, color=C_OURS, zorder=2)
+        ax.hlines(y, [d[n, k].min() for n, _ in FOLLOW], [d[n, k].max() for n, _ in FOLLOW], color=INK, lw=1, zorder=3)
+        for yy, (n, _) in zip(y, FOLLOW):
+            ax.plot(d[n, k], [yy] * len(SEEDS), "o", ms=2.5, color=INK, zorder=4)
+        ax.axvline(0, color=INK2, lw=0.8)
+        ax.set_xlim(-0.05, 0.07)
+        ax.set_xticks([-0.04, 0, 0.04])
+        ax.set_title(title, fontsize=8.5, color=INK)
+        ax.grid(axis="y", visible=False)
+    axes[0].set_yticks(y, [lab for _, lab in FOLLOW])
+    fig.text(0.5, -0.06, "Δ vs. the ablation reference (DENTEX test; bar = mean, whisker/dots = 3 seeds).",
+             ha="center", color=INK2, fontsize=7)
+    fig.tight_layout()
+    save(fig, "fig_dr_followup")
+
+    absval = lambda n, k, sub: stats([get(n, s)[k][sub] for s in SEEDS])
+    syn = lambda n, c: np.mean([get(n, s)["synth_dice"][c] for s in SEEDS])
+    rows = ["| Variant | Teeth Dice | FDI Dice | Numbering | Δ teeth [min, max] | Δ numbering [min, max] | synth implant Dice |",
+            "|---|---|---|---|---|---|---|"]
+    for n, lab in [("ref", "Reference"), *FOLLOW]:
+        cells = [f"{m:.3f}±{s:.3f}" for m, s in (absval(n, k, sub) for k, sub, _ in keys)]
+        if n == "ref":
+            delta = ["–", "–"]
+        else:
+            a, b = d[n, "real_dice_teeth"], d[n, "real_tooth_numbering_acc"]
+            delta = [f"{a.mean():+.3f} [{a.min():+.3f}, {a.max():+.3f}]", f"{b.mean():+.3f} [{b.min():+.3f}, {b.max():+.3f}]"]
+        rows.append(f"| {lab} | " + " | ".join(cells + delta) + f" | {syn(n, 'implant'):.3f} |")
+    tables += ["### Table F — DR follow-up (DENTEX test, 3 seeds, paired with the ablation reference)", *rows, ""]
+
+
 # ---------------------------------------------------------------- CycleGAN
 def cyclegan(tables: list[str]) -> None:
     runs = [("seg_v1_dr_full", "Physics DR (ours)", C_OURS), ("seg_cyclegan", "CycleGAN", C_BASE),
@@ -252,6 +299,7 @@ def main() -> None:
     zero_shot(tables)
     dentex_fewshot(tables)
     ablation(tables)
+    followup(tables)
     cyclegan(tables)
     contact(tables)
     (OUT / "tables.md").write_text("\n".join(tables))

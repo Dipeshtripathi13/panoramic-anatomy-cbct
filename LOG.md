@@ -427,3 +427,14 @@
 - **Results draft**: `paper/results_draft.md` (text, numbers checked against tables) + `scripts/make_figures.py` →
   outputs/paper/{tables.md, figures/fig_fewshot_dentex, fig_ablation, fig_cyclegan, fig_fewshot_contact (.png/.pdf)};
   `*_DATA.png` figures contain dataset images and stay git-ignored.
+- **Follow-up DR results** (3 seeds, paired with abl_ref; DENTEX test; Table F + fig_dr_followup):
+  | variant | teeth Dice | FDI Dice | numbering | Δ teeth [min, max] | Δ numbering | synth implant |
+  | reference              | 0.734 | 0.569 | 0.911 | – | – | 0.656 |
+  | metal off              | 0.767 | 0.592 | 0.895 | +0.033 [+0.022, +0.047] | −0.015 | 0.613 |
+  | metal_narrow (0.8–1.5) | 0.758 | 0.584 | 0.901 | +0.024 [+0.014, +0.031] | −0.009 | 0.576 |
+  | image_strong           | 0.766 | 0.601 | 0.914 | +0.031 [+0.020, +0.042] | +0.003 | 0.579 |
+  | metal off + image_strong | **0.779** | 0.599 | 0.894 | +0.044 [+0.036, +0.058] | −0.017 (3/3 neg) | 0.544 |
+  Takeaways: image-level ranges were too narrow → widening is a free gain (teeth + FDI up in all seeds, numbering unchanged).
+  Metal is a trade-off (outline ↑, numbering ↓ slightly); narrow range recovers ~3/4 of the metal-off gain. Synthetic implant
+  Dice drops in all variants (few test implants, no real implant GT) → if retraining, prefer image_strong + metal_narrow
+  over removing metal. Not run: full-schedule retrain of the headline model with the new ranges.
