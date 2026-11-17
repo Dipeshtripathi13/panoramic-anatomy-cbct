@@ -1,0 +1,24 @@
+# Zero-shot model v2: seg_v1 with the DR ranges retuned after the ablation follow-up (LOG.md, Table F).
+# Metal ×0.8–1.5 (rendered into dr_main_v3; same seed as dr_main_v2, so every other draw is identical) + wider image-level
+# ranges (same overrides as ablation task 11). Validation/selection set unchanged (dr_main_v2 v0, nominal).
+run_name: seg_v2_dr_tuned
+seed: 0
+channels: structures+teeth
+size: [256, 640]
+synth_train_sets: [dr_main_v3]
+synth_val_sets: [dr_main_v2]
+image_factors: [noise, processing]
+dr_overrides: {photons: 'logu:500:50000', read_noise: 'u:0:0.02', psf_mm: 'u:0:0.8', bg_sigma_mm: 'u:4:30',
+               bg_amount: 'u:0.4:0.98', unsharp: 'u:0:2', gamma: 'logu:0.5:2'}
+real_train_frac: 0.0
+real_repeat: 1
+real_val: true
+select_on: synth
+encoder: resnet34
+pretrained: true
+epochs: 60
+batch_size: 16
+lr: 0.001
+weight_decay: 0.0001
+dice_weight: 1.0
+num_workers: 8

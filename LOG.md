@@ -438,3 +438,7 @@
   Metal is a trade-off (outline ↑, numbering ↓ slightly); narrow range recovers ~3/4 of the metal-off gain. Synthetic implant
   Dice drops in all variants (few test implants, no real implant GT) → if retraining, prefer image_strong + metal_narrow
   over removing metal. Not run: full-schedule retrain of the headline model with the new ranges.
+- **seg_v2 prepared** (full-schedule retrain with retuned DR): `configs/train/seg_v2.yaml` = seg_v1 + train set dr_main_v3
+  (train split, v0 + 8 variants, seed 0, `--override metal_scale=logu:0.8:1.5` → paired with dr_main_v2 except metal) +
+  image_strong `dr_overrides`; selection set unchanged (dr_main_v2 v0). `cluster/seg_v2.sbatch`: tasks 0–2 seg_v2 seeds 0–2,
+  tasks 3–4 seg_v1 seeds 1–2 (seg_v1 had only seed 0 → 3 vs 3 comparison). Local smoke test OK.
