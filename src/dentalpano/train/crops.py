@@ -79,7 +79,7 @@ class SynthCropDataset(Dataset):
     def __init__(self, render_sets: list[str], cases: list[str] | None, size: int = 256, train: bool = True,
                  image_factors: list[str] | None = None, variants: list[int] | None = None, seed: int = 0,
                  crop_px: float = 75.0, scale=(0.8, 1.25), shift: float = 0.12, root: Path | None = None,
-                 contact_mm: float = CONTACT_MM):
+                 contact_mm: float = CONTACT_MM, dr_overrides: dict | None = None):
         root = root or dio.REPO / "data" / "renders"
         wanted = set(cases) if cases is not None else None
         self.meta, self.items, sides = {}, [], {}
@@ -102,7 +102,7 @@ class SynthCropDataset(Dataset):
         self.image_factors = IMAGE_FACTORS if image_factors is None else image_factors
         self.crop_px, self.scale, self.shift = crop_px, scale, shift
         self.dist, self.contact_mm = contact3d(), contact_mm
-        self.epoch = 0
+        self.epoch, self.dr_overrides = 0, dr_overrides
 
     def __len__(self) -> int:
         return len(self.items)
@@ -115,7 +115,7 @@ class SynthCropDataset(Dataset):
         rng = np.random.default_rng([self.seed, self.epoch, i] if self.train else [self.seed, i])
         tooth, canal_ch = SIDES[side]
         molar, canal = m[meta["channels"].index(tooth)], m[meta["channels"].index(canal_ch)]
-        p = DR.sample(rng, set(self.image_factors)) if self.train else DR.nominal()
+        p = DR.sample(rng, set(self.image_factors), self.dr_overrides) if self.train else DR.nominal()
         img = DR.image_from_transmission(d["meanT"].astype(np.float32), p, meta["px_mm"], rng)
         rc, cc = crop_centre(molar, canal)
         s = self.crop_px

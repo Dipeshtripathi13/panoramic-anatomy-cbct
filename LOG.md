@@ -448,3 +448,6 @@
   sinus/incisive unchanged. NOTE: seg_v1 seed 0 (headline 0.774) is the best of its 3 seeds (others 0.757, 0.735) → draft
   now also reports the 3-seed mean. Decision: keep seg_v1 s0 as headline/init (all downstream runs use it; canal matters
   for contact); seg_v2 reported as the better teeth recipe. Open: does the synthetic canal drop transfer to real (CONTACT)?
+- **crop_v2 prepared** (does seg_v2's synthetic canal drop transfer to real?): `configs/train/crop_v2.yaml` = crop_v1 with
+  dr_main_v3 + image_strong overrides (`SynthCropDataset` now takes `dr_overrides`), init from seg_v2_dr_tuned_s<seed>.
+  3 seeds vs crop_v1 seeds 0–2 (seeds 1–2 new, init from seg_v1_dr_full_s1/s2) → CONTACT test molar/canal Dice. Smoke OK.
