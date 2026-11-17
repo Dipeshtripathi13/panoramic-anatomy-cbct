@@ -72,7 +72,10 @@ contact label. We trained a crop model on matching synthetic crops (~23 mm field
 matching third-molar size), initialised from the panoramic model (Table D, Figs. `fig_fewshot_contact`,
 `fig_contact_overlays_DATA`).
 
-* **Zero-shot segmentation:** molar Dice 0.611 and canal Dice 0.436–0.478. Molar outlines are often tight (0.85–0.95).
+* **Zero-shot segmentation:** molar Dice 0.611 and canal Dice 0.436–0.478 (crop model and contact model, seed 0).
+  Crop models vary a lot with the training seed. Over three seeds, each initialised from the matching panoramic seed,
+  molar Dice is 0.672 ± 0.058 and canal Dice is 0.479 ± 0.039, and seed 0 is the weakest of the three (Table H).
+  Molar outlines are often tight (0.85–0.95).
   Errors are mostly the neighbouring second molar being segmented, and CONTACT's canal masks are drawn as wider bands
   than our projected canal lumen.
 * **2D overlap cannot detect contact:** the predicted molar–canal overlap gives AUC 0.510, and 0.468 for contact vs.
@@ -116,13 +119,18 @@ wider image-level ranges; seg_v2) and compared it with the original recipe (seg_
   0.582, and detection 0.914 vs 0.871. Numbering accuracy is unchanged (0.895 vs 0.900).
 * On synthetic test volumes, seg_v2 is worse on the structures that have no real labels. The inferior alveolar canal
   drops from 0.746 / 0.755 to 0.721 / 0.721 (left / right), pulp from 0.669 to 0.655, and implants from 0.687 to 0.573.
-  Teeth, sinus and incisive canal are unchanged. The synthetic test set is rendered at nominal appearance, so stronger
-  randomization may cost some fit to that appearance. Whether the canal loss carries over to real images is not measured
-  here.
+  Teeth, sinus and incisive canal are unchanged.
+* The canal loss carries over to real images. We retrained the CONTACT crop model with the seg_v2 recipe, initialised
+  from each seg_v2 seed (Table H). Real canal Dice falls from 0.479 ± 0.039 to 0.397 ± 0.084, and it is lower in every
+  seed pair (0.436 → 0.424, 0.510 → 0.465, 0.492 → 0.303). Molar Dice is unchanged (0.672 vs 0.662). The 2D overlap
+  readout stays near chance in both (AUC 0.56 vs 0.59).
 
-The retuned ranges therefore improve real tooth segmentation by about 0.02 Dice at the cost of some canal and implant
-accuracy. We keep seg_v1 as the headline model, because every downstream experiment starts from it and because canal
-accuracy matters for the contact task. We report seg_v2 as the better recipe for teeth.
+The retuned ranges therefore trade structures against each other. Wider image-level randomization improves real teeth
+by about 0.02 Dice, but it degrades the thin, low-contrast inferior alveolar canal on both synthetic and real images.
+We keep seg_v1 as the headline model, because canal accuracy is central to the contact task and every downstream
+experiment starts from it. The ablation's per-factor conclusions are drawn on teeth and should not be read as a
+recommendation for all structures. Ranges tuned per structure, or validated on canal as well as teeth, are left to
+future work.
 
 ## Limitations to state
 

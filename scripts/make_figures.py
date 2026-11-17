@@ -310,6 +310,24 @@ def zero_shot_seeds(tables: list[str]) -> None:
     tables += ["### Table G — Zero-shot, full schedule, 3 seeds (mean ± sd; DENTEX test + synthetic test)", *rows, ""]
 
 
+def crop_seeds(tables: list[str]) -> None:
+    arms = [("crop_v1 (from seg_v1)", ["crop_v1", "crop_v1_s1", "crop_v1_s2"]),
+            ("crop_v2 (from seg_v2, retuned ranges)", [f"crop_v2_s{s}" for s in SEEDS])]
+    res = {lab: [jload(RUNS / r / "eval_contact_best" / "metrics.json") for r in rs] for lab, rs in arms}
+    if not all(all(js) for js in res.values()):
+        return
+    cols = [(lambda j: j["matched"]["dice_molar"]["mean"], "molar Dice"),
+            (lambda j: j["matched"]["dice_canal"]["mean"], "canal Dice"),
+            (lambda j: j["matched"]["dice_canal"]["group3"], "canal Dice, group 3"),
+            (lambda j: j["matched"]["contact_auc_from_overlap_frac"], "overlap contact AUC")]
+    rows = ["| Model | " + " | ".join(t for _, t in cols) + " | canal Dice per seed |", "|---|" + "---|" * (len(cols) + 1)]
+    for lab, js in res.items():
+        rows.append(f"| {lab} | " + " | ".join("{:.3f}±{:.3f}".format(*stats([f(j) for j in js])) for f, _ in cols)
+                    + " | " + ", ".join(f"{cols[1][0](j):.3f}" for j in js) + " |")
+    tables += ["### Table H — CONTACT zero-shot crop models, 3 seeds (official test, matched resolution; mean ± sd)",
+               *rows, ""]
+
+
 def main() -> None:
     FIG.mkdir(parents=True, exist_ok=True)
     tables: list[str] = []
@@ -320,6 +338,7 @@ def main() -> None:
     followup(tables)
     cyclegan(tables)
     contact(tables)
+    crop_seeds(tables)
     (OUT / "tables.md").write_text("\n".join(tables))
     print("\n".join(tables))
     print("→", OUT)

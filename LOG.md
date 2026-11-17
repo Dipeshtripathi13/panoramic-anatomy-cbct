@@ -451,3 +451,8 @@
 - **crop_v2 prepared** (does seg_v2's synthetic canal drop transfer to real?): `configs/train/crop_v2.yaml` = crop_v1 with
   dr_main_v3 + image_strong overrides (`SynthCropDataset` now takes `dr_overrides`), init from seg_v2_dr_tuned_s<seed>.
   3 seeds vs crop_v1 seeds 0–2 (seeds 1–2 new, init from seg_v1_dr_full_s1/s2) → CONTACT test molar/canal Dice. Smoke OK.
+- **crop_v2 vs crop_v1, 3 seeds** (CONTACT test, matched; Table H): molar 0.672±0.058 vs 0.662±0.085; **canal 0.479±0.039 →
+  0.397±0.084**, lower in every seed pair (0.436→0.424, 0.510→0.465, 0.492→0.303); overlap AUC 0.560 vs 0.588 (both ~chance).
+  → seg_v2's synthetic canal drop transfers to real crops. Decision: seg_v1 stays headline; ablation conclusions are
+  teeth-centric (wider image DR hurts the thin canal). Also: crop_v1 seed 0 (used for contact_v1 + few-shot) is the weakest
+  of 3 seeds (molar 0.611 vs 0.726/0.678) → draft reports the 3-seed mean next to it.
