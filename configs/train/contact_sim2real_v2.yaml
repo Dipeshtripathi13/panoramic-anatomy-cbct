@@ -1,0 +1,26 @@
+# Long-schedule sim→real arm of the contact few-shot grid (reviewer check): same steps as contact_realonly_v2 (90 epochs,
+# CONTACT val every 3rd) with the fine-tuning lr 3e-4 (ARM=sim2real_v2) or the real-only lr 1e-3 (ARM=sim2real_v3, via
+# --set lr). Init from contact_v1, set by cluster/contact_fewshot.sbatch.
+task: crop
+run_name: ctfew_sim2real_v2
+seed: 0
+channels: crop
+size: 256
+real_match_px: 75
+synth_train_sets: null
+synth_val_sets: null
+real_train_frac: 1.0
+real_repeat: 1
+real_val: true
+contact_weight: 0.5
+select_metric: real_contact_auc
+encoder: resnet34
+pretrained: true
+init_from: null
+epochs: 90
+val_every: 3
+batch_size: 32
+lr: 0.0003
+weight_decay: 0.0001
+dice_weight: 1.0
+num_workers: 8

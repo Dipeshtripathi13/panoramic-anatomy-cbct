@@ -490,3 +490,8 @@
   - Paper revised (abstract, findings, 4 CONTACT setup, 5.5 + Table 10, discussion, limitations, conclusion). New
     limitation: sim→real arms (DENTEX + CONTACT) kept the fine-tuning schedule while RO arms were tuned.
   - make_figures: contact figure + Table D now use realonly_v2.
+- **Long-schedule sim→real arms prepared (reviewer check: only RO arms were tuned)**. Sim→real gets the same steps as the
+  tuned RO arm: DENTEX `configs/train/sim2real_v2.yaml` (lr 3e-4, 120 ep, val every 3rd; `MODE=s2rlong` in
+  cluster/baselines.sbatch → sim2real_v2_f*_s*, ~2 h each); CONTACT `configs/train/contact_sim2real_v2.yaml` (90 ep, val every
+  3rd) with lr 3e-4 (`ARM=sim2real_v2`) and lr 1e-3 (`ARM=sim2real_v3`) → ctfew_sim2real_v{2,3}_f*_s*, ~10 min each.
+  Total ≈ 36 + 6 GPU-h. Local smoke test OK.
