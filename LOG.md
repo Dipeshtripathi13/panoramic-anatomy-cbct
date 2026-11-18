@@ -476,3 +476,7 @@
     better than RO at 4–20 images (FDI 0.619 / 0.662) but below DR at every budget and below RO from 39 images.
   - Paper rewritten accordingly (abstract, intro findings, 4, 5.2, 5.4, discussion, conclusion, limitations);
     results_draft.md marked superseded. Open: contact few-shot RO arm used the fine-tuning schedule too (limitation noted).
+- **Contact few-shot, retuned real-only prepared**: unlike DENTEX, the original contact RO curves had converged (train loss
+  ≈0.04, val AUC flat, best epochs 1–20), so undertraining is unlikely; run anyway as a check.
+  `configs/train/contact_realonly_v2.yaml` (lr 1e-3, 90 epochs, val every 3rd), `ARM=realonly_v2` in
+  `cluster/contact_fewshot.sbatch` → runs ctfew_realonly_v2_f*_s*. ~10 min each. Smoke test OK.
