@@ -480,3 +480,13 @@
   ≈0.04, val AUC flat, best epochs 1–20), so undertraining is unlikely; run anyway as a check.
   `configs/train/contact_realonly_v2.yaml` (lr 1e-3, 90 epochs, val every 3rd), `ARM=realonly_v2` in
   `cluster/contact_fewshot.sbatch` → runs ctfew_realonly_v2_f*_s*. ~10 min each. Smoke test OK.
+- **Contact few-shot, retuned real-only — results (2026-11-18)**, CONTACT test, 3 seeds (Table D / paper Table 10):
+  - The "converged, unlikely to change" prediction was **wrong**: the tuned RO arm (lr 1e-3, 90 ep) beats the old RO arm at
+    almost every budget. Canal Dice 9 / 44 / 878 crops: 0.495 / 0.760 / 0.866 (was 0.356 / 0.665 / 0.838); contact AUC
+    with all crops 0.745 ± 0.030 (was 0.695). Low train loss with lr 3e-4 did not mean a converged model.
+  - Sim→real vs tuned RO: S2R wins only at 9 crops (AUC 0.582 vs 0.445, canal 0.610 vs 0.495). At 44/88 crops contact AUC
+    is within 1 sd (0.601 vs 0.589; 0.621 vs 0.594) and RO already segments the canal better (0.760 vs 0.684). From 220
+    crops RO ahead on everything (AUC 0.745 vs 0.672 at 100%).
+  - Paper revised (abstract, findings, 4 CONTACT setup, 5.5 + Table 10, discussion, limitations, conclusion). New
+    limitation: sim→real arms (DENTEX + CONTACT) kept the fine-tuning schedule while RO arms were tuned.
+  - make_figures: contact figure + Table D now use realonly_v2.

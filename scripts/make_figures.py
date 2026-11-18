@@ -257,7 +257,7 @@ def contact(tables: list[str]) -> None:
     n_img = [max(1, int(np.ceil(float(f) * 878))) for f in FRACS]
     res = {(arm, f): [j["matched"] for s in SEEDS
                       if (j := jload(RUNS / f"ctfew_{arm}_f{f}_s{s}" / "eval_contact_best" / "metrics.json"))]
-           for arm in ("realonly", "sim2real") for f in FRACS}
+           for arm in ("realonly_v2", "sim2real") for f in FRACS}   # realonly_v2 = tuned schedule (lr 1e-3, 90 ep)
     zs = jload(RUNS / "contact_v1" / "eval_contact_best" / "metrics.json")["matched"]
     crop = jload(RUNS / "crop_v1" / "eval_contact_best" / "metrics.json")["matched"]
     keys = [(lambda m: m["head_contact_auc"], "Contact AUC", zs["head_contact_auc"]),
@@ -265,7 +265,7 @@ def contact(tables: list[str]) -> None:
             (lambda m: m["dice_canal"]["mean"], "Canal Dice", zs["dice_canal"]["mean"])]
     fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.4))
     for ax, (fn, title, z) in zip(axes, keys):
-        for arm, col, lab in (("realonly", C_BASE, "Real-only (ImageNet init)"),
+        for arm, col, lab in (("realonly_v2", C_BASE, "Real-only, tuned (ImageNet init)"),
                               ("sim2real", C_OURS, "Sim→real (CBCT contact labels)")):
             m = np.array([stats([fn(x) for x in res[arm, f]]) for f in FRACS])
             ax.plot(n_img, m[:, 0], color=col, lw=2, marker="o", ms=4, label=lab)
@@ -303,7 +303,7 @@ def contact(tables: list[str]) -> None:
                         f"{m['head_contact_auc_group1_vs_3']:.3f} |")
     rows += ["", "| Labelled crops | contact AUC RO / S2R | g1 vs 3 RO / S2R | canal Dice RO / S2R |", "|---|---|---|---|"]
     for f, n in zip(FRACS, n_img):
-        c = [tuple(stats([fn(x) for x in res[arm, f]]) for arm in ("realonly", "sim2real")) for fn, *_ in keys]
+        c = [tuple(stats([fn(x) for x in res[arm, f]]) for arm in ("realonly_v2", "sim2real")) for fn, *_ in keys]
         rows.append(f"| {n} ({float(f):.0%}) | " + " | ".join(f"{a[0]:.3f}±{a[1]:.3f} / {b[0]:.3f}±{b[1]:.3f}" for a, b in c) + " |")
     tables += ["### Table D — CONTACT (official test, 444 crops; matched resolution; few-shot 3 seeds)", *rows, ""]
 

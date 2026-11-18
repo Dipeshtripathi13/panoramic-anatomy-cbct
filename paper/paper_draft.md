@@ -32,8 +32,8 @@ anatomy the labels describe (numbering accuracy 0.900 vs 0.104).
 
 Finally, we compute the true 3D contact between the third-molar root and the IAC from each CBCT and train a contact
 classifier on synthetic crops alone. On real CONTACT crops, it separates contact from no contact with AUC 0.596. The
-predicted 2D overlap is at chance (AUC 0.51). The signal is weak but present, and simulation gives the largest gains
-when real labels are scarce. The simulator, splits and code will be released.
+predicted 2D overlap is at chance (AUC 0.51). The signal is weak but present. Fine-tuning it helps only with very
+few real labels (nine crops); from 44 crops a tuned real-only model is as good or better. The simulator, splits and code will be released.
 
 ---
 
@@ -89,7 +89,8 @@ panoramics. With a handful of real labels it matches real-only training that use
 advantage disappears once about 100 labelled images are available. Randomization is what makes this work:
 unrandomized simulation does not transfer. Second, image-level realism (noise and vendor processing) dominates transfer, while geometry
 helps tooth identity. Third, physics-based randomization preserves label correctness, whereas unpaired translation
-does not. Fourth, a contact signal learned from CBCT transfers weakly to real images, while 2D overlap carries none.
+does not. Fourth, a contact signal learned from CBCT transfers weakly to real images, while 2D overlap carries none;
+it is a useful starting point only when almost no real contact labels exist.
 
 ## 2. Related Work
 
@@ -325,8 +326,11 @@ renders passed through the frozen generator together with their original masks. 
 image-level randomization.
 
 **CONTACT.** Zero-shot crop and contact models are tested on the 444 official test crops. For few-shot contact, we
-compare fine-tuning the contact model with training from ImageNet on 1–100% of the 878 training crops (masks and contact
-labels), with three seeds and selection on validation contact AUC.
+compare fine-tuning the contact model (learning rate 3·10⁻⁴, 30 epochs) with training from ImageNet on 1–100% of the
+878 training crops (masks and contact labels), with three seeds and selection on validation contact AUC. As on DENTEX,
+the real-only arm uses a tuned schedule (learning rate 10⁻³, 90 epochs, validation every third epoch). With the
+fine-tuning schedule it was undertrained: the tuned arm is better at almost every budget (canal Dice +0.03 to +0.14,
+contact AUC +0.05 with all crops).
 
 **Metrics.** On DENTEX we report Dice of the teeth union and mean Dice over FDI channels present in the ground truth.
 DENTEX polygons are coarse: straight-edged, and including the gaps between teeth. We therefore also report three
@@ -522,22 +526,29 @@ mask overlap separates contact with AUC 0.717 on test against 0.763 on validatio
 
 *Table 9. Zero-shot contact prediction on the CONTACT test set (444 crops, matched resolution).*
 
-**Few-shot contact.** CBCT pretraining helps when real labels are scarce (Table 10, `fig_fewshot_contact`). With nine
-labelled crops it reaches a contact AUC of 0.582 ± 0.010, against 0.450 ± 0.028 for training from ImageNet, and a canal
-Dice of 0.610 vs 0.356. With 44 crops the AUC is 0.601 vs 0.532. From 88 crops the two arms are equal. From 220 crops
-real-only training is better (0.676–0.710 vs 0.627–0.672). The synthetic contact prior does not carry over to
-CONTACT's harder test split once enough real labels are available. Segmentation converges for both arms by 88 crops.
+**Few-shot contact.** CBCT pretraining helps only when real labels are very scarce (Table 10, `fig_fewshot_contact`).
+With nine labelled crops it reaches a contact AUC of 0.582 ± 0.010, against 0.445 ± 0.043 for the tuned real-only model,
+and a canal Dice of 0.610 vs 0.495. Below chance, the real-only model at this budget has learned a spurious cue. With 44
+and 88 crops the contact AUC of the two arms is within one standard deviation (0.601 vs 0.589; 0.621 vs 0.594), and
+real-only training already segments the canal better (0.760 vs 0.684 with 44 crops). From 220 crops real-only training
+is ahead on every measure, and clearly so from 439, reaching a contact AUC of 0.745 ± 0.030 with all 878 crops against 0.672 ± 0.018. The
+synthetic contact prior does not carry over to CONTACT's harder test split once real labels are available, and
+fine-tuning from it even costs canal accuracy. A plausible cause is the canal definition: our labels mark the canal
+lumen, CONTACT's masks mark a wider band (see above), and a model started from the narrower definition does not fully
+adapt within the fine-tuning schedule.
 
 | Labelled crops | Contact AUC RO / S2R | Group 1 vs 3 RO / S2R | Canal Dice RO / S2R |
 |---|---|---|---|
-| 9 (1%) | 0.450 ± 0.028 / **0.582 ± 0.010** | 0.447 ± 0.010 / **0.539 ± 0.009** | 0.356 ± 0.025 / **0.610 ± 0.013** |
-| 44 (5%) | 0.532 ± 0.014 / **0.601 ± 0.004** | 0.520 ± 0.020 / **0.565 ± 0.005** | 0.665 ± 0.140 / 0.684 ± 0.025 |
-| 88 (10%) | 0.616 ± 0.063 / 0.621 ± 0.014 | 0.593 ± 0.059 / 0.565 ± 0.016 | 0.758 ± 0.068 / 0.757 ± 0.009 |
-| 220 (25%) | **0.676 ± 0.021** / 0.627 ± 0.022 | **0.636 ± 0.020** / 0.569 ± 0.014 | 0.825 ± 0.012 / 0.765 ± 0.045 |
-| 439 (50%) | **0.710 ± 0.007** / 0.649 ± 0.008 | **0.671 ± 0.019** / 0.589 ± 0.006 | 0.814 ± 0.027 / 0.807 ± 0.011 |
-| 878 (100%) | **0.695 ± 0.034** / 0.672 ± 0.018 | **0.645 ± 0.041** / 0.612 ± 0.016 | 0.838 ± 0.011 / 0.833 ± 0.002 |
+| 9 (1%) | 0.445 ± 0.043 / **0.582 ± 0.010** | 0.446 ± 0.033 / **0.539 ± 0.009** | 0.495 ± 0.064 / **0.610 ± 0.013** |
+| 44 (5%) | 0.589 ± 0.012 / 0.601 ± 0.004 | 0.579 ± 0.027 / 0.565 ± 0.005 | **0.760 ± 0.029** / 0.684 ± 0.025 |
+| 88 (10%) | 0.594 ± 0.089 / 0.621 ± 0.014 | 0.559 ± 0.103 / 0.565 ± 0.016 | **0.811 ± 0.008** / 0.757 ± 0.009 |
+| 220 (25%) | **0.658 ± 0.028** / 0.627 ± 0.022 | 0.597 ± 0.034 / 0.569 ± 0.014 | **0.839 ± 0.007** / 0.765 ± 0.045 |
+| 439 (50%) | **0.722 ± 0.027** / 0.649 ± 0.008 | **0.683 ± 0.034** / 0.589 ± 0.006 | **0.858 ± 0.004** / 0.807 ± 0.011 |
+| 878 (100%) | **0.745 ± 0.030** / 0.672 ± 0.018 | **0.697 ± 0.038** / 0.612 ± 0.016 | **0.866 ± 0.006** / 0.833 ± 0.002 |
 
-*Table 10. Few-shot contact on the CONTACT test set, mean ± sd over three seeds.*
+*Table 10. Few-shot contact on the CONTACT test set, mean ± sd over three seeds. RO = real-only with the tuned
+schedule (ImageNet initialisation); S2R = fine-tuned contact model. Bold: the better arm where the means differ by more
+than one standard deviation of either arm.*
 
 ## 6. Discussion
 
@@ -570,7 +581,8 @@ the wrong objective for the rest. Validating each structure, or randomizing per 
 information. A head trained on contact labels computed from CBCT recovers a weak but significant signal (AUC 0.60,
 confidence interval above 0.5) from the image alone, and it does so without a single real contact label. It is not
 clinically useful at this level. Its value is that it shows the 3D relation leaves a learnable trace in the projection,
-and that this trace can be learned from simulation. With enough real labels, real-only training overtakes it. Our
+and that this trace can be learned from simulation. As a pretraining prior it pays off only at the smallest budget:
+from 44 real crops a tuned real-only model is as good, and from 220 it is clearly better. Our
 contact definition and CONTACT's may not coincide: we use labels touching on the canal lumen, CONTACT uses a
 CBCT-confirmed relation. CONTACT also counts far more contact (74%) than our synthetic population (33%). The threshold
 analysis rules out the simplest explanation, a looser threshold, but other differences in definition may remain.
@@ -590,8 +602,8 @@ patients with training, and its official test set appears harder than its traini
 Most results use three seeds, and the seed-to-seed spread is not negligible. The panoramic model we report and use for
 initialisation is the best of three seeds on DENTEX (0.774 against a mean of 0.755), and the crop model we use is the
 weakest of three on CONTACT. The few-shot and contact experiments vary the fine-tuning seed but start from this one
-model. The real-only arm of the CONTACT few-shot experiment used the fine-tuning schedule. On DENTEX that schedule
-undertrained real-only models, so the advantage of CBCT pretraining at 9 and 44 contact crops may be overstated. The
+model. In both few-shot experiments the real-only arm was tuned but the sim→real arm kept the fine-tuning schedule;
+a longer or per-budget schedule might narrow the gap at large budgets, where real-only training is ahead. The
 CycleGAN baseline is a single run of the standard architecture. ToothFairy3's field of view limits the
 simulation: most volumes do not include the upper jaw, orbits or condyles, the patients bite in an open position rather
 than on a bite block, and the simulated resolution (0.3 mm) is coarser than a real panoramic's.
@@ -604,7 +616,7 @@ a handful of real images, it matches real-only training on about ten times as ma
 disappears once about 100 labelled images are available. Without randomization, simulation does not transfer. The paired ablation shows
 which parts of the simulation matter, and that the answer differs between structures. Simulated labels also carry
 information no 2D annotation can: a contact head trained on 3D geometry alone detects true third-molar–canal contact
-above chance, where the visible overlap cannot. We will release the simulator, the render configuration, the splits
+above chance, where the visible overlap cannot, although real contact labels overtake it from a few dozen crops. We will release the simulator, the render configuration, the splits
 and the trained models to support work on panoramic anatomy beyond the teeth.
 
 ## Data and code availability
