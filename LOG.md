@@ -466,3 +466,13 @@
   - `cluster/baselines.sbatch` (MODE=realonly|nominal|nomfew; trains + test-evaluates). Local smoke tests OK.
   - Paper: abstract + Table 2 now lead with 3-seed means (0.755 ± 0.020; seed 0 marked as the downstream init);
     contribution 1 states that only teeth + canal are validated on real images.
+- **Reviewer baselines — results (2026-11-18), DENTEX test, 3 seeds** (Table A / I, fig_fewshot_dentex):
+  - Retuned real-only (lr 1e-3, 120 ep) is MUCH stronger than the first grid: numbering 1% 0.454 / 5% 0.869 / 10% 0.923 /
+    25% 0.941 / 50% 0.946 / 100% 0.952 (was 0.263 … 0.801); FDI 100% 0.779 (was 0.647). The old "4 labels beat 384" claim
+    was an artefact of the undertrained baseline → **withdrawn**.
+  - Sim→real (DR) still clearly better at 4–39 images (numbering 0.933 / 0.935 / 0.940; FDI 0.702 / 0.720 / 0.736),
+    ≈ real-only from 96; real-only marginally ahead on FDI at 100% (0.779 vs 0.774). S2R with 4 images ≈ RO with 39.
+  - No-DR (nominal renders) zero-shot fails: teeth 0.277 ± 0.070, detection 0.08, numbering 0.19. Fine-tuned from it:
+    better than RO at 4–20 images (FDI 0.619 / 0.662) but below DR at every budget and below RO from 39 images.
+  - Paper rewritten accordingly (abstract, intro findings, 4, 5.2, 5.4, discussion, conclusion, limitations);
+    results_draft.md marked superseded. Open: contact few-shot RO arm used the fine-tuning schedule too (limitation noted).
