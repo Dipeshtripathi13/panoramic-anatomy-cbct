@@ -4,6 +4,11 @@
 #   MODE=nominal         sbatch --array=0-2 cluster/baselines.sbatch   no-DR zero-shot model, seeds 0–2 (~2.5 h each)
 #   MODE=nomfew    SEED=s sbatch --array=0-5 cluster/baselines.sbatch   few-shot from seg_nominal_s0 (fewshot.yaml schedule)
 #   MODE=s2rlong   SEED=s sbatch --array=0-5 cluster/baselines.sbatch   long-schedule sim→real from seg_v1_dr_full (~2 h each)
+#   MODE=slab            sbatch --array=0-2 cluster/baselines.sbatch   curved-slab zero-shot model, seeds 0–2 (~2.5 h each)
+#   MODE=slabfew   SEED=s sbatch --array=0-5 cluster/baselines.sbatch   few-shot from seg_slab_s0 (fewshot.yaml schedule)
+#   MODE=ssl             sbatch --array=0   cluster/baselines.sbatch   SimCLR on unlabelled DENTEX → runs/ssl_simclr
+#   MODE=sslfew    SEED=s sbatch --array=0-5 cluster/baselines.sbatch   real-only (tuned) from the SSL encoder (~2 h each)
+#   MODE=mandible        sbatch --array=0   cluster/baselines.sbatch   mandible external test of every zero-shot model
 #SBATCH --job-name=dental-base
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:volta:1
@@ -33,6 +38,17 @@ case "$MODE" in
             args=(--config configs/train/fewshot.yaml --set real_train_frac=$frac real_repeat=$rep init_from=$init seed=$SEED) ;;
   s2rlong)  init="$PROJ/runs/seg_v1_dr_full/best.pt"; [ -f "$init" ]; run="sim2real_v2_f${frac}_s${SEED}"
             args=(--config configs/train/sim2real_v2.yaml --set real_train_frac=$frac real_repeat=$rep init_from=$init seed=$SEED) ;;
+  slab)     SEED=$i; run="seg_slab_s${SEED}"
+            args=(--config configs/train/seg_slab.yaml --set seed=$SEED) ;;
+  slabfew)  init="$PROJ/runs/seg_slab_s0/best.pt"; [ -f "$init" ]; run="fewshot_slab_f${frac}_s${SEED}"
+            args=(--config configs/train/fewshot.yaml --set real_train_frac=$frac real_repeat=$rep init_from=$init seed=$SEED) ;;
+  ssl)      python scripts/pretrain_ssl.py --run "$PROJ/runs/ssl_simclr"; exit 0 ;;
+  sslfew)   init="$PROJ/runs/ssl_simclr/encoder.pt"; [ -f "$init" ]; run="ssl_realonly_f${frac}_s${SEED}"
+            args=(--config configs/train/realonly_v2.yaml --set real_train_frac=$frac real_repeat=$rep init_from=$init seed=$SEED) ;;
+  mandible) for r in seg_v1_dr_full seg_v1_dr_full_s1 seg_v1_dr_full_s2 seg_nominal_s0 seg_nominal_s1 seg_nominal_s2 \
+                     seg_cyclegan seg_slab_s0 seg_slab_s1 seg_slab_s2; do
+              [ -f "$PROJ/runs/$r/best.pt" ] && python scripts/evaluate_mandible.py --run "$PROJ/runs/$r" --overlays 6
+            done; exit 0 ;;
   *) echo "unknown MODE=$MODE"; exit 1 ;;
 esac
 python scripts/train.py "${args[@]}" --set run_name="$run" out_root="$PROJ/runs" num_workers=$((SLURM_CPUS_PER_TASK - 2))

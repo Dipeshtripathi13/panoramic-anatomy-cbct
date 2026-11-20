@@ -530,3 +530,15 @@
     metal streaks, magnification unvalidated, open bite, 0.3 vs 0.1 mm); annotation constraint stated; context vs ceiling.
   - Decisions (user): run curved-slab baseline, in-domain SSL baseline, mandible external test (Abdi & Kasaei); keep contact
     (reframed); prepare GitHub release.
+- **Reviewer round 1 — experiments prepared (2026-11-20)**:
+  - Curved summed-slab baseline: `render_dataset.py --beam slab` (arch-normal rays, 1-px slit = no TDI blur, attenuation
+    summed only within ±h of the trough = no ghosts/spine; h ~ U(5, 15) mm, nominal 10, drawn after all factors so shared
+    draws are identical to dr_main_v2) → slab_v1; `configs/train/seg_slab.yaml`; MODE=slab / slabfew. Local render OK.
+  - In-domain SSL: `scripts/pretrain_ssl.py` (SimCLR, ImageNet-initialised ResNet-34 encoder, 2,098 unlabelled DENTEX,
+    400 ep, batch 128, τ 0.2) → encoder.pt loadable via init_from (all 216 encoder tensors verified); MODE=ssl / sslfew
+    (realonly_v2 recipe).
+  - Mandible external test: Abdi & Kasaei (Mendeley 10.17632/hxt48yk462.2, 116 panoramics, 2 dentists; zip sha256
+    4ab6f670…52cf3, CC BY-NC) → `AbdiMandible_DentalPanoramicXrays.zip`; `scripts/evaluate_mandible.py` scores the
+    mandible channel inside the fixed framing crop. Trivial all-foreground prediction already scores 0.714 (inter-rater
+    0.987) → must be reported as the floor. MODE=mandible.
+  - `cluster/submit_review1.sh` chains everything with dependencies.

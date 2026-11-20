@@ -1,0 +1,21 @@
+# Curved summed-slab baseline (reviewer item 3): same recipe as seg_v1, trained on slab_v1 renders (render_dataset.py
+# --beam slab: arch-normal rays, no TDI blur, no ghosts; same seed → paired with dr_main_v2 on all shared draws).
+run_name: seg_slab
+seed: 0
+channels: structures+teeth          # 11 structures + 32 FDI tooth channels (overlapping, sigmoid)
+size: [256, 640]                    # H, W after cropping; synthetic and real use the same canvas
+synth_train_sets: [slab_v1]
+synth_val_sets: [slab_v1]        # val split volumes, nominal variant v0 only
+image_factors: [noise, processing]  # image-level DR applied on the fly (an ablation removes one)
+real_train_frac: 0.0                # > 0 adds DENTEX few-shot train images (few-shot / real-only runs)
+real_repeat: 1
+real_val: true                      # log DENTEX val Dice each epoch (needs the DENTEX zips on disk)
+select_on: synth                    # checkpoint selection on SYNTHETIC val only (zero-shot)
+encoder: resnet34
+pretrained: true
+epochs: 60
+batch_size: 16
+lr: 0.001
+weight_decay: 0.0001
+dice_weight: 1.0
+num_workers: 8

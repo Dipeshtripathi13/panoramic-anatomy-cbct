@@ -13,12 +13,17 @@ Usage:
   .venv/bin/python scripts/render_dataset.py --name dr_full --splits train val --variants 8
   .venv/bin/python scripts/render_dataset.py --name nominal_test --splits test --variants 0
   .venv/bin/python scripts/render_dataset.py --name abl_no_ghosts --disable ghosts --variants 4
+  .venv/bin/python scripts/render_dataset.py --name slab_v1 --beam slab --variants 8
+      curved summed-slab baseline: arch-normal rays, one-pixel slit (no TDI blur), attenuation summed only within
+      ±h of the trough (no ghosts/spine); h ~ U(5, 15) mm (nominal 10) plays the role of the trough width. Same seed →
+      the shared factor draws (arch jitter, volume factors) are identical to the panoramic set.
   --limit N renders only the first N volumes (smoke tests).
   --shard i --nshards n renders volumes i, i+n, i+2n, … (one Slurm array task per shard; same output folder).
 """
 from __future__ import annotations
 
 import argparse
+import dataclasses
 import hashlib
 import json
 import subprocess
@@ -56,6 +61,7 @@ def main() -> None:
     ap.add_argument("--disable", nargs="*", default=[], help="factors fixed at nominal (ablation)")
     ap.add_argument("--override", nargs="*", default=[],
                     help="sampling-range overrides param=u:lo:hi or param=logu:lo:hi (e.g. metal_scale=logu:0.8:1.5)")
+    ap.add_argument("--beam", choices=["opg", "slab"], default="opg")
     ap.add_argument("--no-nominal", action="store_true")
     ap.add_argument("--seed", type=int, default=0)
     ap.add_argument("--limit", type=int, default=None)
@@ -68,6 +74,8 @@ def main() -> None:
     split = json.loads((dio.REPO / "splits" / "toothfairy3.json").read_text())
     cases = [c for s in args.splits for c in split[s]][: args.limit][args.shard:: args.nshards]
     enabled = set(DR.FACTORS) - set(args.disable)
+    if args.beam == "slab":                         # no rotation geometry to randomise
+        enabled -= {"trough_width", "blur_outside", "ghosts"}
     base = opg.OPGConfig()
     base.channels.update(EXTRA_CHANNELS)
     channels = list(base.channels)
@@ -76,12 +84,13 @@ def main() -> None:
                                 cwd=dio.REPO).stdout)
     index_path = out / "index.json"
     args.overrides = dict(kv.split("=", 1) for kv in args.override)
-    meta = {"name": args.name, "splits": args.splits, "variants": args.variants, "enabled": sorted(enabled),
+    meta = {"name": args.name, "beam": args.beam, "splits": args.splits, "variants": args.variants, "enabled": sorted(enabled),
             "overrides": args.overrides,
             "seed": args.seed, "channels": channels, "git": git, "dirty": dirty, "px_mm": base.column_mm}
     if index_path.exists():
         old = json.loads(index_path.read_text())
-        same = lambda d: (d["enabled"], d["seed"], d["channels"], d.get("overrides") or {})   # older sets: no overrides
+        same = lambda d: (d["enabled"], d["seed"], d["channels"], d.get("overrides") or {},   # older sets: no overrides
+                          d.get("beam", "opg"))
         assert same(old) == same(meta), "existing render set was made with different settings"
     tmp = out / f".index.{args.shard}.tmp"                 # atomic write: shards may start together
     tmp.write_text(json.dumps(meta, indent=1))
@@ -117,7 +126,12 @@ def render_volume(case, todo, out, args, base, enabled, channels) -> None:
     for k in todo:
         rng = np.random.default_rng(seed_for(args.seed, case, k))
         p = DR.nominal() if k == 0 else DR.sample(rng, enabled, args.overrides)
-        r = opg.render(None, lab, DR.opg_config(p, base), arch=DR.jitter_arch(arch, p), mu=DR.attenuation(img, lab, p, spine),
+        cfg = DR.opg_config(p, base)
+        if args.beam == "slab":                     # drawn after all factors → their draws are unchanged
+            p["slab_half_mm"] = 10.0 if k == 0 else float(rng.uniform(5.0, 15.0))
+            cfg = dataclasses.replace(cfg, beam="normal", slit_mm=cfg.magnification * cfg.column_mm, far_weight=1.0,
+                                      depth_before_mm=p["slab_half_mm"], depth_after_mm=p["slab_half_mm"])
+        r = opg.render(None, lab, cfg, arch=DR.jitter_arch(arch, p), mu=DR.attenuation(img, lab, p, spine),
                        labels=labels)
         masks = np.stack([r["masks"][c] for c in channels])
         np.savez_compressed(
