@@ -23,6 +23,8 @@ def paths() -> dict:
     """Dataset paths from configs/paths.yaml; $DENTAL_DATA_ROOT overrides `root` (e.g. on the cluster)."""
     cfg = yaml.safe_load((REPO / "configs" / "paths.yaml").read_text())
     root = Path(os.environ.get("DENTAL_DATA_ROOT", cfg["root"]))
+    if not root.is_absolute():                     # relative roots are relative to the repository
+        root = REPO / root
     for key, val in cfg.items():
         if isinstance(val, dict):
             cfg[key] = {k: root / v for k, v in val.items()}

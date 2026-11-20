@@ -1,5 +1,5 @@
 # All raw data are read-only. Zips are read in place (never extracted, never moved).
-root: /Users/dipeshtripathi/Desktop/projects/dental
+root: .                         # data zips in the repository root; $DENTAL_DATA_ROOT overrides
 toothfairy3:
   zip: ToothFairy3.zip          # imagesTr/*_0000.nii.gz, labelsTr/*.nii.gz, dataset.json
 toothfairy2:

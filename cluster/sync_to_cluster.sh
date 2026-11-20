@@ -4,6 +4,7 @@
 #   bash cluster/sync_to_cluster.sh tf3             # + ToothFairy3.zip (27 GB, hours on wifi; resumable)
 #   bash cluster/sync_to_cluster.sh small           # + CONTACT zip (16 MB)
 #   bash cluster/sync_to_cluster.sh dentex          # + Zenodo/DENTEX zips (10 GB)
+#   bash cluster/sync_to_cluster.sh mandible        # + Abdi & Kasaei mandible zip (325 MB)
 # Uses one SSH master connection, so Duo is asked once per run.
 set -euo pipefail
 USER_AT_HOST="${USER_AT_HOST:-dipesh.tripathi@lawrence.usd.edu}"
@@ -32,6 +33,7 @@ for what in "$@"; do
     tf3)    "${RS_BIG[@]}" -e "$SSH" "$LOCAL/ToothFairy3.zip" "$USER_AT_HOST:$REMOTE_PROJ/data_raw/" ;;
     small)  "${RS[@]}" -e "$SSH" "$LOCAL/CONTACTdataset.zip" "$USER_AT_HOST:$REMOTE_PROJ/data_raw/" ;;
     dentex) "${RS_BIG[@]}" -e "$SSH" "$LOCAL/Zenodo/" "$USER_AT_HOST:$REMOTE_PROJ/data_raw/Zenodo/" ;;
+    mandible) "${RS[@]}" -e "$SSH" "$LOCAL/AbdiMandible_DentalPanoramicXrays.zip" "$USER_AT_HOST:$REMOTE_PROJ/data_raw/" ;;
     *) echo "unknown target $what"; exit 1 ;;
   esac
 done
