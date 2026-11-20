@@ -16,3 +16,6 @@ outputs_dir: outputs
 abdi_mandible:
   zip: AbdiMandible_DentalPanoramicXrays.zip   # Abdi & Kasaei 2020, Mendeley 10.17632/hxt48yk462.2 (116 panoramics;
                                                # Images/, Segmentation1/ + 2/ = image masked to the mandible, 2 dentists)
+tufts:                                         # Tufts Dental Database (Panetta et al. 2022; access on request)
+  radiographs: Tufts/Radiographs.zip
+  segmentation: Tufts/Segmentation.zip         # teeth_mask/, maxillomandibular/, teeth_polygon.json (Universal numbers)

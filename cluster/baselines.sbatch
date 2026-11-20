@@ -9,6 +9,8 @@
 #   MODE=ssl             sbatch --array=0   cluster/baselines.sbatch   SimCLR on unlabelled DENTEX → runs/ssl_simclr
 #   MODE=sslfew    SEED=s sbatch --array=0-5 cluster/baselines.sbatch   real-only (tuned) from the SSL encoder (~2 h each)
 #   MODE=mandible        sbatch --array=0   cluster/baselines.sbatch   mandible external test of every zero-shot model
+#   MODE=tufts           sbatch --array=0-5 cluster/baselines.sbatch   Tufts external test: task 0 zero-shot models,
+#                        tasks 1–5 few-shot arms (realonly_v2, fewshot_sim2real, ssl_realonly, fewshot_slab, fewshot_nominal)
 #SBATCH --job-name=dental-base
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:volta:1
@@ -48,6 +50,17 @@ case "$MODE" in
   mandible) for r in seg_v1_dr_full seg_v1_dr_full_s1 seg_v1_dr_full_s2 seg_nominal_s0 seg_nominal_s1 seg_nominal_s2 \
                      seg_cyclegan seg_slab_s0 seg_slab_s1 seg_slab_s2; do
               [ -f "$PROJ/runs/$r/best.pt" ] && python scripts/evaluate_mandible.py --run "$PROJ/runs/$r" --overlays 6
+            done; exit 0 ;;
+  tufts)    arms=(zeroshot realonly_v2 fewshot_sim2real ssl_realonly fewshot_slab fewshot_nominal); a=${arms[$i]}
+            if [ "$a" = zeroshot ]; then
+              runs="seg_v1_dr_full seg_v1_dr_full_s1 seg_v1_dr_full_s2 seg_nominal_s0 seg_nominal_s1 seg_nominal_s2 seg_cyclegan
+                    seg_slab_s0 seg_slab_s1 seg_slab_s2"
+            else
+              runs=$(for f in "${FRACS[@]}"; do for s in 0 1 2; do echo "${a}_f${f}_s${s}"; done; done)
+            fi
+            for r in $runs; do
+              [ -f "$PROJ/runs/$r/best.pt" ] && python scripts/evaluate_tufts.py --run "$PROJ/runs/$r" \
+                --num-workers $((SLURM_CPUS_PER_TASK - 2))
             done; exit 0 ;;
   *) echo "unknown MODE=$MODE"; exit 1 ;;
 esac

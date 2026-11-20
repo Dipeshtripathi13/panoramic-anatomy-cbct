@@ -542,3 +542,11 @@
     mandible channel inside the fixed framing crop. Trivial all-foreground prediction already scores 0.714 (inter-rater
     0.987) → must be reported as the floor. MODE=mandible.
   - `cluster/submit_review1.sh` chains everything with dependencies.
+- **Tufts Dental Database (2026-11-20)**: access granted; downloaded Radiographs/Segmentation/Expert/Student zips (285 MB)
+  to `Tufts/` (git-ignored; research-use agreement, never redistribute). Segmentation: teeth_mask (contour-tight),
+  maxillomandibular ROI, teeth_polygon.json (Universal 1–32, primary A–T; bboxes inconsistent → polygons used; polygon
+  union vs teeth_mask Dice ≥ 0.89). Universal→FDI checked against tooth centroids (1 = image upper left).
+  `scripts/evaluate_tufts.py`: DENTEX protocol (fixed framing crop, same tooth-level metrics); main set = 886 images
+  (permanent teeth only; 32 edentulous + 82 with primary teeth excluded). Jaw-region Dice vs maxillomandibular ROI is
+  near-uninformative (all-foreground floor ≈ 0.78) → secondary only. MODE=tufts: zero-shot models + every few-shot arm
+  (cross-dataset generalisation of DENTEX-trained models), chained after the few-shot jobs in submit_review1.sh.

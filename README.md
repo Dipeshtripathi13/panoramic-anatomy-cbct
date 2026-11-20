@@ -6,7 +6,7 @@ few-shot segmentation of dental panoramic radiographs* (Dipesh Tripathi, Univers
 A rotational panoramic (orthopantomograph) simulator renders panoramics from labelled cone-beam CT (ToothFairy3) and
 projects the 3D labels into overlapping 2D masks: 32 teeth by FDI number, pulp, both inferior alveolar canals, incisive
 canals, maxillary sinus, crowns, bridges, implants, mandible and maxilla. Models trained only on these renders are
-tested on real panoramics (DENTEX, CONTACT, and an external mandible set).
+tested on real panoramics (DENTEX, CONTACT, Tufts, and an external mandible set).
 
 ## What is here
 
@@ -42,6 +42,8 @@ code reads the zips in place and never extracts them.
 - **CONTACT**: Ulusoy et al., *Scientific Reports* 15:4178 (2025) (`CONTACTdataset.zip`)
 - **Mandible test set**: Abdi & Kasaei, Mendeley Data, doi:10.17632/hxt48yk462.2
   (`AbdiMandible_DentalPanoramicXrays.zip`)
+- **Tufts Dental Database**: Panetta et al., *IEEE JBHI* 26(4), 2022; access on request
+  (`Tufts/Radiographs.zip`, `Tufts/Segmentation.zip`)
 
 Do not use the reorientation script distributed with ToothFairy; it yields an upside-down, front-to-back mirrored
 volume. `dentalpano.tf3.fix_orientation` applies the correct flip in memory.
