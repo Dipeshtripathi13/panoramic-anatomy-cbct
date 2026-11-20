@@ -495,3 +495,14 @@
   cluster/baselines.sbatch → sim2real_v2_f*_s*, ~2 h each); CONTACT `configs/train/contact_sim2real_v2.yaml` (90 ep, val every
   3rd) with lr 3e-4 (`ARM=sim2real_v2`) and lr 1e-3 (`ARM=sim2real_v3`) → ctfew_sim2real_v{2,3}_f*_s*, ~10 min each.
   Total ≈ 36 + 6 GPU-h. Local smoke test OK.
+- **Long-schedule sim→real — results (2026-11-20)**, test, 3 seeds (Table J; paper Tables 10–11):
+  - DENTEX sim2real_v2 (lr 3e-4, 120 ep) ≈ short schedule everywhere (FDI Δ ≤ 0.006, numbering Δ ≤ 0.002; best epochs
+    ≤ 20) → sim→real was not undertrained; DENTEX claims unchanged, 40-epoch arm stays reported.
+  - CONTACT: lr 3e-4 90 ep ≈ short schedule; lr 1e-3 90 ep (sim2real_v3, = RO recipe) better at ≥ 44 crops (AUC 0.690 vs
+    0.649 at 50%, canal 0.846 vs 0.833 at 100%). Validation does NOT separate the three schedules (≤ 0.013), so
+    sim2real_v3 is reported because it matches the RO recipe (only init differs), not because of test results.
+  - S2R (v3) vs RO: contact AUC better at 9 and 44 crops (0.579 vs 0.445; 0.616 vs 0.589), level at 88–220, RO better
+    from 439 (0.745 vs 0.698 at 100%). Canal: S2R better at 9, level at 44, RO better from 88.
+  - Paper: abstract, findings, Section 4 (DENTEX schedule check, CONTACT both arms same schedule), 5.5 + Table 10, new
+    Table 11 (schedule sensitivity), discussion, limitations (schedule not tuned per budget), conclusion. make_figures:
+    contact S2R arm = ctfew_sim2real_v3; Table J added.

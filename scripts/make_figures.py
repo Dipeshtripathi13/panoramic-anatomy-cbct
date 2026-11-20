@@ -257,7 +257,7 @@ def contact(tables: list[str]) -> None:
     n_img = [max(1, int(np.ceil(float(f) * 878))) for f in FRACS]
     res = {(arm, f): [j["matched"] for s in SEEDS
                       if (j := jload(RUNS / f"ctfew_{arm}_f{f}_s{s}" / "eval_contact_best" / "metrics.json"))]
-           for arm in ("realonly_v2", "sim2real") for f in FRACS}   # realonly_v2 = tuned schedule (lr 1e-3, 90 ep)
+           for arm in ("realonly_v2", "sim2real_v3") for f in FRACS}   # both arms: lr 1e-3, 90 ep; only the init differs
     zs = jload(RUNS / "contact_v1" / "eval_contact_best" / "metrics.json")["matched"]
     crop = jload(RUNS / "crop_v1" / "eval_contact_best" / "metrics.json")["matched"]
     keys = [(lambda m: m["head_contact_auc"], "Contact AUC", zs["head_contact_auc"]),
@@ -266,7 +266,7 @@ def contact(tables: list[str]) -> None:
     fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.4))
     for ax, (fn, title, z) in zip(axes, keys):
         for arm, col, lab in (("realonly_v2", C_BASE, "Real-only, tuned (ImageNet init)"),
-                              ("sim2real", C_OURS, "Sim→real (CBCT contact labels)")):
+                              ("sim2real_v3", C_OURS, "Sim→real (CBCT contact labels)")):
             m = np.array([stats([fn(x) for x in res[arm, f]]) for f in FRACS])
             ax.plot(n_img, m[:, 0], color=col, lw=2, marker="o", ms=4, label=lab)
             ax.fill_between(n_img, m[:, 0] - m[:, 1], m[:, 0] + m[:, 1], color=col, alpha=0.15, lw=0)
@@ -303,7 +303,7 @@ def contact(tables: list[str]) -> None:
                         f"{m['head_contact_auc_group1_vs_3']:.3f} |")
     rows += ["", "| Labelled crops | contact AUC RO / S2R | g1 vs 3 RO / S2R | canal Dice RO / S2R |", "|---|---|---|---|"]
     for f, n in zip(FRACS, n_img):
-        c = [tuple(stats([fn(x) for x in res[arm, f]]) for arm in ("realonly_v2", "sim2real")) for fn, *_ in keys]
+        c = [tuple(stats([fn(x) for x in res[arm, f]]) for arm in ("realonly_v2", "sim2real_v3")) for fn, *_ in keys]
         rows.append(f"| {n} ({float(f):.0%}) | " + " | ".join(f"{a[0]:.3f}±{a[1]:.3f} / {b[0]:.3f}±{b[1]:.3f}" for a, b in c) + " |")
     tables += ["### Table D — CONTACT (official test, 444 crops; matched resolution; few-shot 3 seeds)", *rows, ""]
 
@@ -358,6 +358,26 @@ def crop_seeds(tables: list[str]) -> None:
                *rows, ""]
 
 
+def schedule_check(tables: list[str]) -> None:
+    """Sim→real arms under the short fine-tuning schedule vs the long schedule of the tuned real-only arms."""
+    arms = [("DENTEX", "fewshot_sim2real", "lr 3e-4, 40 ep", "eval_best"),
+            ("DENTEX", "sim2real_v2", "lr 3e-4, 120 ep", "eval_best"),
+            ("CONTACT", "ctfew_sim2real", "lr 3e-4, 30 ep", "eval_contact_best"),
+            ("CONTACT", "ctfew_sim2real_v2", "lr 3e-4, 90 ep", "eval_contact_best"),
+            ("CONTACT", "ctfew_sim2real_v3", "lr 1e-3, 90 ep", "eval_contact_best")]
+    metric = {"DENTEX": ("FDI Dice", lambda j: j["real_dice_fdi_mean"]["mean"]),
+              "CONTACT": ("contact AUC", lambda j: j["matched"]["head_contact_auc"])}
+    rows = ["| Data | Sim→real schedule | metric | " + " | ".join(FRACS) + " |", "|---|---|---|" + "---|" * len(FRACS)]
+    for data, run, lab, ev in arms:
+        js = {f: [jload(RUNS / f"{run}_f{f}_s{s}" / ev / "metrics.json") for s in SEEDS] for f in FRACS}
+        if not all(all(v) for v in js.values()):
+            continue
+        name, fn = metric[data]
+        rows.append(f"| {data} | {lab} | {name} | " + " | ".join("{:.3f}±{:.3f}".format(*stats([fn(j) for j in js[f]]))
+                                                                for f in FRACS) + " |")
+    tables += ["### Table J — Sim→real fine-tuning schedule check (test, 3 seeds; columns = label fraction)", *rows, ""]
+
+
 def main() -> None:
     FIG.mkdir(parents=True, exist_ok=True)
     tables: list[str] = []
@@ -370,6 +390,7 @@ def main() -> None:
     cyclegan(tables)
     contact(tables)
     crop_seeds(tables)
+    schedule_check(tables)
     (OUT / "tables.md").write_text("\n".join(tables))
     print("\n".join(tables))
     print("→", OUT)
