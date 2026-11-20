@@ -9,7 +9,7 @@
 #SBATCH --gres=gpu:volta:1
 #SBATCH --cpus-per-task=12
 #SBATCH --mem=64G
-#SBATCH --time=08:00:00
+#SBATCH --time=04:00:00
 #SBATCH --output=logs/%x-%A_%a.out
 set -euo pipefail
 PROJ="${PROJ:-/home/santosh_lab/shared/dipesh/dental}"
