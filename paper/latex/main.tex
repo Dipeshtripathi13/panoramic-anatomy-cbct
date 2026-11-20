@@ -34,20 +34,20 @@
             country={USA}}
 
 \begin{abstract}
-Panoramic radiographs are the most common dental imaging examination, but pixel-level annotation is costly. Because a
-panoramic is a projection, a 2D label also cannot show whether two overlapping structures touch in 3D. We investigate how
-well segmentation models trained only on panoramics simulated from labelled cone-beam CT (CBCT) transfer to real ones. We built a physics-based simulator of rotational panoramic imaging (moving narrow beam, focal trough,
-out-of-trough blur, ghosts, spine shadow), applied it to 532 ToothFairy3 volumes and projected
-their labels into overlapping masks for 32 teeth, pulp, the inferior alveolar canal (IAC), incisive canals, maxillary
-sinus and restorations, with domain randomization of geometry, metal, contrast, noise and vendor-style processing.
-Trained on renders alone, a U-Net segments teeth on 187 real DENTEX panoramics with a Dice of 0.755\,$\pm$\,0.020 and
-numbers 90\% of detected teeth correctly; without randomization, transfer fails (Dice 0.28). With four labelled real
-images, numbering accuracy reaches 0.933, against 0.454 for a tuned real-only model. Real-only training needs about ten
-times more labels to catch up; the advantage disappears at about 100 images. A paired per-factor ablation shows that
-image noise and processing govern transfer, while the panoramic geometry factors improve tooth identity.
-Physics-based randomization outperforms CycleGAN translation, which altered the anatomy. Finally, a head trained on
-third-molar--IAC contact labels computed from CBCT detects contact on real CONTACT crops with an AUC of 0.596, where the
-2D overlap is at chance; as pretraining, it helps up to about 40 labelled real crops.
+Panoramic radiographs are the most common dental imaging examination, but pixel-level annotation is costly, and a 2D
+label cannot show whether two overlapping structures touch in 3D. We ask how well segmentation models trained only on
+panoramics simulated from labelled cone-beam CT (CBCT) transfer to real panoramics. We built a physics-based simulator of
+rotational panoramic imaging (moving narrow beam, focal trough, out-of-trough blur, ghosts, spine shadow), applied it to
+532 ToothFairy3 volumes, and projected their labels into overlapping masks for teeth, pulp, the inferior alveolar canal,
+incisive canals, maxillary sinus and restorations, with domain randomization of the acquisition and the image
+formation. Trained on renders alone, a U-Net segments and numbers teeth on real DENTEX panoramics (teeth Dice 0.755;
+90\% of detected teeth numbered correctly); without randomization, transfer fails. Fine-tuned on a few real images, it
+matches real-only training on about ten times as many labels, an advantage that disappears at about 100 labelled
+images. A paired per-factor ablation over three seeds shows that image noise and processing govern transfer, while the
+panoramic geometry factors improve tooth identity. Physics-based randomization also outperforms CycleGAN translation,
+which altered the anatomy. Finally, a classifier trained only on third-molar--canal contact labels computed from CBCT
+learns a weak contact signal on real CONTACT crops (AUC 0.60) without any real contact label, below what expert
+radiographic signs or ground-truth mask overlap achieve; with 44 or more real crops, real-only training is as good.
 \end{abstract}
 
 \begin{highlights}
@@ -55,7 +55,7 @@ third-molar--IAC contact labels computed from CBCT detects contact on real CONTA
 \item Models trained only on simulated panoramics segment and number real teeth
 \item Four real labels plus simulation match real-only training on about 40 images
 \item Paired ablation: image noise drives transfer; geometry helps tooth identity
-\item CBCT-derived labels detect third-molar--canal contact where 2D overlap fails
+\item A weak contact signal is learned from CBCT geometry without real contact labels
 \end{highlights}
 
 \begin{keyword}
@@ -118,8 +118,8 @@ panoramics. With a handful of real labels it matches real-only training that use
 advantage disappears once about 100 labelled images are available. Randomization is what makes this work: unrandomized
 simulation does not transfer. Second, image-level realism (noise and vendor processing) dominates transfer, while
 geometry helps tooth identity. Third, physics-based randomization preserves label correctness, whereas unpaired
-translation does not. Fourth, a contact signal learned from CBCT transfers weakly to real images, while 2D overlap
-carries none; it is a useful starting point only when few real contact labels exist.
+translation does not. Fourth, a contact signal learned from CBCT geometry alone, without any real contact label, transfers weakly to real
+images; it is a useful starting point only when few real contact labels exist.
 
 % =====================================================================================================================
 \section{Related work}
@@ -192,7 +192,8 @@ voxel data are stored in RPI order although the header states LPS. We verified t
 label volumes and correct it in memory. The officially distributed reorientation script yields an upside-down,
 front-to-back mirrored volume, so we did not use it. Upper-jaw structures are present mainly in Set B: the maxillary
 sinus appears in about 50 volumes and the upper jawbone in 43\% of them. Each volume carries per-channel ``annotated''
-flags and a field-of-view mask, so the loss ignores structures that a volume does not contain. We split the volumes once
+flags and a field-of-view mask, so the loss ignores structures that a volume does not contain. We report the
+orientation issue, and the DENTEX duplicates below, so that other users of these datasets can avoid them. We split the volumes once
 into 374 training, 53 validation and 105 test volumes, stratified by set, metal and third-molar presence.
 
 \textbf{DENTEX}~\cite{hamamci2023} supplies real panoramics with FDI-enumerated tooth polygons, plus 2,098 unlabelled
@@ -304,6 +305,7 @@ the render stay identical. This allows a \emph{paired} ablation: each ablated re
 in the removed factor.
 
 \subsection{Segmentation model and training}
+\label{sec:train}
 We use a U-Net~\cite{ronneberger2015} with a ResNet-34 encoder~\cite{he2016} initialised from ImageNet, one input channel
 and 43 sigmoid outputs. Channels overlap, so each is a separate binary problem. For the same reason we did not use
 nnU-Net~\cite{isensee2021}, which assumes one label per pixel. The loss is per-pixel binary cross-entropy plus a
@@ -314,6 +316,8 @@ the teeth union and the 32 FDI channels are supervised.
 Augmentation consists of a random crop of 80--100\% of the image and a horizontal flip. The flip swaps left and right
 channels: the canals, and FDI quadrants 1$\leftrightarrow$2 and 3$\leftrightarrow$4. Real images are framed with one
 fixed relative crop, derived from tooth extents in the few-shot training pool, so that they match the synthetic canvas.
+This is the only use of real labels in the zero-shot setting: the polygon extents of the 384 pool images set one crop
+box, which is applied unchanged to every real image.
 We train with AdamW (learning rate $10^{-3}$, weight decay $10^{-4}$), a one-cycle schedule, batch size 16 and mixed
 precision, for 60 epochs on one V100 GPU (about 2.3 hours). For the zero-shot model, the checkpoint is selected on the
 mean Dice over synthetic validation renders only. Real images are never used for training or selection.
@@ -389,8 +393,10 @@ boundary-insensitive tooth-level measures. A ground-truth tooth counts as \emph{
 is covered by predicted tooth pixels. \emph{Numbering accuracy} is the fraction of detected teeth whose largest-overlap
 predicted FDI channel is correct. \emph{Presence F1} measures, per FDI number, whether a tooth is predicted (area
 $\geq$\,300 pixels) when present. On CONTACT we report molar and canal Dice, and the AUC of contact (group 1 vs.\ groups
-2 + 3), overall and for the hard comparison of group 1 vs.\ 3. Confidence intervals are 95\% percentile bootstraps over
-test images (2,000 resamples).
+2 + 3), overall and for the hard comparison of group 1 vs.\ 3. Confidence intervals for single models are 95\% percentile bootstraps over test images (2,000 resamples).
+Comparisons between arms use a paired hierarchical bootstrap (10,000 draws): each draw resamples the training seeds of
+each arm and then the test images, shared by both arms so that the pairing by image is kept. We report the mean
+difference, its 95\% interval and a two-sided bootstrap $p$-value.
 
 % =====================================================================================================================
 \section{Results}
@@ -400,7 +406,10 @@ Trained only on simulated panoramics, the model segments the teeth on the 187 re
 \pmsd{0.755}{0.020} over three training seeds (Table~\ref{tab:zs}). It also numbers them: mean FDI Dice is
 \pmsd{0.582}{0.019}, 87.1\% of annotated teeth are detected, and \pmsd{90.0}{0.1}\% of detected teeth receive the
 correct FDI number. Numbering accuracy is almost identical across seeds, while Dice and detection vary more. The model
-never saw a real image or a real label.
+was never trained on a real image or label; the only real-label information it uses is the fixed framing crop
+(Section~\ref{sec:train}). For reference, the same network trained on all 384 labelled DENTEX images reaches a teeth
+Dice of 0.894 and an FDI Dice of 0.779 (Table~\ref{tab:fewdentex}), which indicates what the coarse polygons allow.
+These numbers are not directly comparable with the DENTEX challenge results, which evaluate bounding-box detection.
 
 Visual inspection explains much of the remaining Dice gap (Fig.~\ref{fig:dentex}). The predictions follow tooth contours
 and leave interproximal gaps empty, whereas the DENTEX polygons are straight-edged and include those gaps. Dice therefore
@@ -409,9 +418,11 @@ held-out synthetic test volumes the model reaches a teeth Dice of 0.882, IAC 0.7
 pulp 0.668 and incisive canal 0.460. On real images the predicted canals are anatomically plausible: they run below the
 molar roots and rise into the ramus. Real canal accuracy is measured on CONTACT in Section~\ref{sec:contact}.
 
-All downstream experiments (few-shot, crops, contact) start from training seed 0, which happens to be the best of the
-three seeds on DENTEX. We report its numbers with bootstrap confidence intervals alongside the mean, so that the starting
-point of those experiments is clear.
+All downstream experiments (few-shot, crops, contact) start from training seed 0. It was the first model we trained and
+was fixed as the initialisation before seeds 1 and 2 existed; those were trained later to measure the seed variance,
+and seed 0 turned out to be the best of the three on DENTEX. Seed 0 was therefore not selected on the test set, but the
+downstream experiments start from a better-than-average model. We report its numbers with bootstrap confidence intervals
+alongside the mean, so that the starting point of those experiments is clear.
 
 \begin{table}[t]
 \centering\small
@@ -448,8 +459,10 @@ With four labelled images, \sr\ reaches an FDI Dice of \pmsd{0.702}{0.006} and a
 \pmsd{0.933}{0.006}. The tuned real-only model reaches \pmsd{0.169}{0.042} and \pmsd{0.454}{0.073} on the same images.
 Real-only training needs about ten times more labels to catch up: with 39 images it reaches an FDI Dice of 0.696 and a
 numbering accuracy of 0.923, close to what \sr\ achieves with four. With 20 images \sr\ is still clearly ahead (FDI 0.720
-vs.\ 0.620, numbering 0.935 vs.\ 0.869). From about 100 labelled images the two are equivalent; with all 384, real-only
-is marginally ahead on FDI Dice (0.779 vs.\ 0.774) and level on numbering (0.952 vs.\ 0.950). Simulation therefore
+vs.\ 0.620, numbering 0.935 vs.\ 0.869). The paired bootstrap confirms the advantage on both measures up to 39 images
+($p \leq 0.003$) and on FDI Dice at 96 images (+0.011 [+0.002, +0.021], $p = 0.013$). From 192 images no difference is
+significant; with all 384, real-only is marginally ahead on FDI Dice (0.779 vs.\ 0.774, $p = 0.06$) and level on
+numbering (0.952 vs.\ 0.950). Simulation therefore
 replaces most real labels in the low-data regime but adds little once a moderately sized labelled set exists.
 Teeth-union Dice behaves similarly but with smaller gaps: the outline of the dentition in DENTEX's annotation style is
 learned from few images, while the identity of each tooth is not.
@@ -472,7 +485,8 @@ seeds; bands show $\pm$ one sd). The dashed line is the zero-shot model.}
 \centering\small
 \caption{Few-shot results on the DENTEX test set, mean $\pm$ sd over three seeds. RO = real-only (ImageNet
 initialisation, tuned schedule); NoDR = fine-tuned from the no-randomization model; DR = fine-tuned from the randomized
-zero-shot model. Bold marks a clear best (difference larger than the spread across seeds).}
+zero-shot model. Bold: DR differs significantly from RO (paired hierarchical bootstrap over seeds and test images,
+$p < 0.05$; FDI Dice and numbering tested).}
 \label{tab:fewdentex}
 \begin{adjustbox}{max width=\linewidth}
 \begin{tabular}{@{}rlccc@{}}
@@ -481,11 +495,11 @@ Labelled images & Arm & Teeth Dice & FDI Dice & Numbering \\
 \midrule
 \multirow{3}{*}{4 (1\%)} & RO & \pmsd{0.793}{0.009} & \pmsd{0.169}{0.042} & \pmsd{0.454}{0.073} \\
  & NoDR & \pmsd{0.839}{0.006} & \pmsd{0.619}{0.011} & \pmsd{0.886}{0.011} \\
- & DR & \textbf{\pmsd{0.860}{0.013}} & \textbf{\pmsd{0.702}{0.006}} & \textbf{\pmsd{0.933}{0.006}} \\
+ & DR & \pmsd{0.860}{0.013} & \textbf{\pmsd{0.702}{0.006}} & \textbf{\pmsd{0.933}{0.006}} \\
 \midrule
 \multirow{3}{*}{20 (5\%)} & RO & \pmsd{0.865}{0.006} & \pmsd{0.620}{0.020} & \pmsd{0.869}{0.016} \\
  & NoDR & \pmsd{0.862}{0.007} & \pmsd{0.662}{0.006} & \pmsd{0.901}{0.003} \\
- & DR & \textbf{\pmsd{0.875}{0.003}} & \textbf{\pmsd{0.720}{0.007}} & \textbf{\pmsd{0.935}{0.002}} \\
+ & DR & \pmsd{0.875}{0.003} & \textbf{\pmsd{0.720}{0.007}} & \textbf{\pmsd{0.935}{0.002}} \\
 \midrule
 \multirow{3}{*}{39 (10\%)} & RO & \pmsd{0.881}{0.000} & \pmsd{0.696}{0.006} & \pmsd{0.923}{0.005} \\
  & NoDR & \pmsd{0.872}{0.002} & \pmsd{0.685}{0.007} & \pmsd{0.911}{0.003} \\
@@ -510,7 +524,11 @@ Labelled images & Arm & Teeth Dice & FDI Dice & Numbering \\
 \subsection{Which randomization factors matter}
 The paired ablation (Table~\ref{tab:abl}, Fig.~\ref{fig:abl}) separates the factors into three groups. The reference
 reaches a teeth Dice of \pmsd{0.734}{0.004} and a numbering accuracy of \pmsd{0.911}{0.004} with the shorter ablation
-schedule.
+schedule. The ablation and the retuning below are measured on the test set. To make sure that no decision depends on
+it, we repeated every comparison on the 62 real validation images, using the validation Dice logged at each run's
+selected checkpoint. The sign of every factor's mean effect on teeth Dice agrees with the test set, and the ranking differs only by a swap
+of two small effects, spine and arch jitter (Table~\ref{tab:abl}, last column). The conclusions and the retuning would
+therefore be the same if made on validation alone.
 
 \emph{Image-level noise is essential.} Without it, teeth Dice drops by 0.436 [$-$0.547, $-$0.344], while accuracy on
 the synthetic test set stays the same or improves: without noise the model fits the simulator but does not transfer.
@@ -526,22 +544,23 @@ at a small cost in numbering ($-$0.015).
 \begin{table}[t]
 \centering\small
 \caption{Paired per-factor ablation on the DENTEX test set. Each $\Delta$ is relative to the reference trained with the
-same seed; brackets give the minimum and maximum over three seeds.}
+same seed; brackets give the minimum and maximum over three seeds. The last column repeats the teeth-Dice comparison on
+the 62 real validation images (mean over seeds).}
 \label{tab:abl}
 \begin{adjustbox}{max width=\linewidth}
-\begin{tabular}{@{}lccc@{}}
+\begin{tabular}{@{}lcccc@{}}
 \toprule
-Factor removed & $\Delta$ teeth Dice & $\Delta$ numbering & Same sign in 3/3 seeds \\
+Factor removed & $\Delta$ teeth Dice & $\Delta$ numbering & Same sign in 3/3 seeds & $\Delta$ teeth Dice, val. \\
 \midrule
-Noise & $-$0.436 [$-$0.547, $-$0.344] & $-$0.062 [$-$0.181, +0.026] & teeth \\
-Processing & $-$0.066 [$-$0.095, $-$0.023] & $-$0.021 [$-$0.038, +0.006] & teeth \\
-Spine & $-$0.011 [$-$0.038, +0.009] & $-$0.008 [$-$0.015, $-$0.001] & numbering \\
-Arch jitter & $-$0.009 [$-$0.043, +0.016] & $-$0.018 [$-$0.039, $-$0.000] & numbering \\
-Contrast & +0.001 [$-$0.015, +0.021] & $-$0.008 [$-$0.019, +0.005] & -- \\
-Trough width & +0.006 [$-$0.004, +0.015] & $-$0.022 [$-$0.028, $-$0.012] & numbering \\
-Ghosts & +0.016 [$-$0.010, +0.033] & $-$0.020 [$-$0.031, $-$0.011] & numbering \\
-Blur outside trough & +0.026 [+0.013, +0.047] & $-$0.018 [$-$0.026, $-$0.007] & teeth, numbering \\
-Metal & +0.033 [+0.022, +0.047] & $-$0.015 [$-$0.027, +0.005] & teeth \\
+Noise & $-$0.436 [$-$0.547, $-$0.344] & $-$0.062 [$-$0.181, +0.026] & teeth & $-$0.430 \\
+Processing & $-$0.066 [$-$0.095, $-$0.023] & $-$0.021 [$-$0.038, +0.006] & teeth & $-$0.086 \\
+Spine & $-$0.011 [$-$0.038, +0.009] & $-$0.008 [$-$0.015, $-$0.001] & numbering & $-$0.010 \\
+Arch jitter & $-$0.009 [$-$0.043, +0.016] & $-$0.018 [$-$0.039, $-$0.000] & numbering & $-$0.015 \\
+Contrast & +0.001 [$-$0.015, +0.021] & $-$0.008 [$-$0.019, +0.005] & -- & +0.006 \\
+Trough width & +0.006 [$-$0.004, +0.015] & $-$0.022 [$-$0.028, $-$0.012] & numbering & +0.010 \\
+Ghosts & +0.016 [$-$0.010, +0.033] & $-$0.020 [$-$0.031, $-$0.011] & numbering & +0.021 \\
+Blur outside trough & +0.026 [+0.013, +0.047] & $-$0.018 [$-$0.026, $-$0.007] & teeth, numbering & +0.034 \\
+Metal & +0.033 [+0.022, +0.047] & $-$0.015 [$-$0.027, +0.005] & teeth & +0.041 \\
 \bottomrule
 \end{tabular}
 \end{adjustbox}
@@ -560,6 +579,7 @@ off. Bars show the mean, dots the three seeds; the noise bar extends beyond the 
 gain (teeth +0.024) with a smaller numbering cost. Widening the image-level ranges (photon count, read noise, detector
 blur, background subtraction, unsharp masking, gamma) improves teeth Dice by 0.031 and FDI Dice by 0.033 in every seed,
 with numbering unchanged. It is the only change that improves outline and per-tooth Dice at no cost to enumeration.
+On the validation images the three changes give +0.033, +0.041 and +0.053 teeth Dice, in the same order.
 
 \begin{table}[t]
 \centering\small
@@ -588,7 +608,8 @@ unchanged numbering. But it is worse on the structures that lack real labels. On
 trained with the retuned recipe reaches a CONTACT canal Dice of \pmsd{0.397}{0.084}, against \pmsd{0.479}{0.039} for the
 original, and it is lower in every seed pair (Table~\ref{tab:crop}). Stronger image-level randomization thus trades the
 thin, low-contrast canal against the teeth. We keep the original recipe as our main model. The ablation's conclusions are
-drawn on teeth and should not be generalised to every structure.
+drawn on teeth and should not be generalised to every structure. Because the retuned recipe was not adopted, no
+headline result depends on the test-set tuning.
 
 \begin{table}[t]
 \centering\small
@@ -613,7 +634,8 @@ Synthetic implant Dice & \multicolumn{2}{c}{0.687} & \multicolumn{2}{c}{0.573} \
 \end{table}
 
 \subsection{Randomization versus no randomization and image translation}
-Without randomization, simulation does not transfer at all (Table~\ref{tab:sources}). Trained on nominal renders only,
+Without randomization, simulation does not transfer at all (Table~\ref{tab:sources}; all differences to the
+randomized model $p < 0.001$). Trained on nominal renders only,
 the model reaches a teeth Dice of \pmsd{0.277}{0.070} on DENTEX, detects 8\% of the teeth and numbers 19\% of those
 correctly, even though it fits the synthetic data well. This mirrors the ablation, where removing image-level noise alone
 cost 0.44 Dice.
@@ -687,29 +709,44 @@ CONTACT's canal masks are wide bands between the cortical lines; our projected c
 \label{fig:contact}
 \end{figure}
 
-\textbf{2D overlap cannot detect contact.} The predicted molar--canal overlap fraction gives a contact AUC of 0.510, and
-0.468 for contact vs.\ overlap without contact (group 1 vs.\ 3). Both are at chance, which is the radiological problem
-CONTACT was built to study.
+\textbf{Predicted overlap carries no signal; true overlap does.} The predicted molar--canal overlap fraction of the
+zero-shot crop model gives a contact AUC of 0.510, and 0.468 for contact vs.\ overlap without contact (group 1 vs.\ 3),
+both at chance. This reflects our weak zero-shot canal segmentation (Dice 0.436), not a lack of information in the
+radiograph: the overlap of the ground-truth masks separates contact with an AUC of 0.717 on the test set (0.60 for
+group 1 vs.\ 3), and the best single expert-scored radiographic sign supplied with CONTACT reaches 0.72
+(Table~\ref{tab:contact}).
 
-\textbf{The contact head learns a weak but real signal from CBCT alone.} Trained only on synthetic crops with labels from
-3D geometry, the head reaches an AUC of 0.596 [0.538, 0.656] on the real test set, and 0.575 for group 1 vs.\ 3
-(Table~\ref{tab:contact}). For reference, the six expert-scored radiographic signs supplied with CONTACT give an AUC of
-0.54 when summed, and 0.72 for the best single sign (interruption of the canal's white line). Looser contact definitions
-transfer worse ($\leq$\,1\,mm: 0.564; $\leq$\,2\,mm: 0.515), and the validation set agrees, so we keep the a-priori
-definition. Validation AUC on CONTACT (0.77--0.78) is well above test AUC. The official test set appears intrinsically
-harder: even the ground-truth mask overlap separates contact with an AUC of 0.717 on test against 0.763 on validation, and
-the test crops are blurrier.
+\textbf{The contact head learns a weak signal without real contact labels.} Trained only on synthetic crops with
+labels from 3D geometry, the head reaches an AUC of 0.596 [0.538, 0.656] on the real test set, and 0.575 for group 1
+vs.\ 3 (Table~\ref{tab:contact}). This is below the ground-truth overlap and the best expert sign (interruption of the
+canal's white line), both of which rely on real annotations; the six expert signs summed give 0.54. The head's value is
+that it needs no real contact label at all, and that it adds signal beyond the same model's own predicted-overlap
+readout (0.540). Looser contact definitions transfer worse ($\leq$\,1\,mm: 0.564; $\leq$\,2\,mm: 0.515), and the
+validation set agrees, so we keep the a-priori definition. The matched-resolution protocol was fixed before evaluation,
+from the scale analysis in Section~3.5; at native resolution the AUC is 0.605 [0.546, 0.665].
+
+Validation AUC on CONTACT (0.77--0.78) is well above test AUC. We examined the cause after observing the gap: the
+official test set appears intrinsically harder, since even the ground-truth mask overlap separates contact with an AUC
+of 0.717 on test against 0.763 on validation and 0.770 on training, and the test crops are blurrier. Contact is also far
+more prevalent in CONTACT (74\%) than in our synthetic population (33\%). AUC does not depend on prevalence, but any
+operating threshold would have to be recalibrated on real data.
 
 \begin{table}[t]
 \centering\small
-\caption{Zero-shot contact prediction on the CONTACT test set (444 crops, matched resolution).}
+\caption{Contact prediction on the CONTACT test set (444 crops, matched resolution). The first two rows use real masks or
+expert scores and are references, not competitors; the zero-shot models use no real label.}
 \label{tab:contact}
 \begin{adjustbox}{max width=\linewidth}
 \begin{tabular}{@{}lcccc@{}}
 \toprule
-Model (zero-shot) & Molar Dice & Canal Dice & Contact AUC [95\% CI] & Group 1 vs.\ 3 AUC \\
+Model & Molar Dice & Canal Dice & Contact AUC [95\% CI] & Group 1 vs.\ 3 AUC \\
 \midrule
-Crop model, 2D overlap readout & 0.611 & 0.436 & 0.510 & 0.468 \\
+\multicolumn{5}{@{}l}{\emph{References that use real annotations}} \\
+Ground-truth mask overlap & -- & -- & 0.717 & 0.60 \\
+Expert radiographic signs, best single / summed & -- & -- & 0.72 / 0.54 & -- \\
+\midrule
+\multicolumn{5}{@{}l}{\emph{Zero-shot, no real labels}} \\
+Crop model, predicted-overlap readout & 0.611 & 0.436 & 0.510 & 0.468 \\
 Contact head, contact $\leq$\,0.52\,mm & 0.604 & 0.478 & \textbf{0.596 [0.538, 0.656]} & \textbf{0.575} \\
 Contact head, contact $\leq$\,1.0\,mm & 0.624 & 0.412 & 0.564 [0.508, 0.622] & 0.554 \\
 Contact head, contact $\leq$\,2.0\,mm & 0.536 & 0.453 & 0.515 [0.457, 0.576] & 0.521 \\
@@ -718,14 +755,15 @@ Contact head, contact $\leq$\,2.0\,mm & 0.536 & 0.453 & 0.515 [0.457, 0.576] & 0
 \end{adjustbox}
 \end{table}
 
-\textbf{Few-shot contact.} CBCT pretraining helps when real labels are scarce, and real-only training is better once
-they are plentiful (Table~\ref{tab:fewcontact}, Fig.~\ref{fig:fewcontact}). With nine labelled crops, \sr\ reaches a
-contact AUC of \pmsd{0.579}{0.017} against \pmsd{0.445}{0.043}, and a canal Dice of 0.674 vs.\ 0.495. The real-only
-model at this budget is below chance, so it has learned a spurious cue. With 44 crops \sr\ still has the higher contact
-AUC (\pmsd{0.616}{0.009} vs.\ \pmsd{0.589}{0.012}), with equal canal Dice. At 88 and 220 crops the contact AUC of the
-two arms is level, but real-only training segments the canal better. From 439 crops real-only training is ahead on every
-measure, reaching a contact AUC of \pmsd{0.745}{0.030} with all 878 crops against \pmsd{0.698}{0.012}. The synthetic
-prior does not carry over to CONTACT's harder test split once enough real labels are available. A plausible cause for
+\textbf{Few-shot contact.} CBCT pretraining helps when real labels are very scarce, and real-only training is as good
+or better once they are available (Table~\ref{tab:fewcontact}, Fig.~\ref{fig:fewcontact}). With nine labelled crops,
+\sr\ reaches a contact AUC of \pmsd{0.579}{0.017} against \pmsd{0.445}{0.043} (difference +0.134 [+0.048, +0.217],
+$p = 0.004$), and a canal Dice of 0.674 vs.\ 0.495 ($p < 0.001$). The real-only model at this budget is below chance,
+so it has learned a spurious cue. From 44 crops on, no difference in contact AUC is significant: \sr\ is ahead by
+0.027--0.040 at 44 and 88 crops ($p \geq 0.39$), and real-only by 0.032--0.047 at 439 and 878 crops ($p \geq 0.11$),
+reaching \pmsd{0.745}{0.030} with all 878 crops against \pmsd{0.698}{0.012}. Real-only training segments the canal
+significantly better from 88 crops on ($p \leq 0.005$). The synthetic prior therefore does not carry over to CONTACT's
+harder test split once real labels are available. A plausible cause for
 the canal gap is the label definition: our labels mark the canal lumen, CONTACT's masks a wider band. A fine-tuned model
 has to unlearn the narrower definition, and the higher learning rate, which lets it move further from its
 initialisation, narrows the gap (with all crops, canal Dice 0.846 at learning rate $10^{-3}$ vs.\ 0.829 at
@@ -743,8 +781,8 @@ dotted line is chance.}
 \begin{table}[t]
 \centering\small
 \caption{Few-shot contact on the CONTACT test set, mean $\pm$ sd over three seeds. Both arms are trained with learning
-rate $10^{-3}$ for 90 epochs. RO = real-only (ImageNet initialisation); S2R = fine-tuned contact model. Bold: the better
-arm where the means differ by more than one sd of either arm.}
+rate $10^{-3}$ for 90 epochs. RO = real-only (ImageNet initialisation); S2R = fine-tuned contact model. Bold: the better arm
+where the difference is significant (paired hierarchical bootstrap over seeds and test crops, $p < 0.05$).}
 \label{tab:fewcontact}
 \begin{adjustbox}{max width=\linewidth}
 \begin{tabular}{@{}rlccc@{}}
@@ -752,10 +790,10 @@ arm where the means differ by more than one sd of either arm.}
 Labelled crops & Arm & Contact AUC & Group 1 vs.\ 3 AUC & Canal Dice \\
 \midrule
 \multirow{2}{*}{9 (1\%)} & RO & \pmsd{0.445}{0.043} & \pmsd{0.446}{0.033} & \pmsd{0.495}{0.064} \\
- & S2R & \textbf{\pmsd{0.579}{0.017}} & \textbf{\pmsd{0.529}{0.016}} & \textbf{\pmsd{0.674}{0.024}} \\
+ & S2R & \textbf{\pmsd{0.579}{0.017}} & \pmsd{0.529}{0.016} & \textbf{\pmsd{0.674}{0.024}} \\
 \midrule
 \multirow{2}{*}{44 (5\%)} & RO & \pmsd{0.589}{0.012} & \pmsd{0.579}{0.027} & \pmsd{0.760}{0.029} \\
- & S2R & \textbf{\pmsd{0.616}{0.009}} & \pmsd{0.570}{0.010} & \pmsd{0.776}{0.016} \\
+ & S2R & \pmsd{0.616}{0.009} & \pmsd{0.570}{0.010} & \pmsd{0.776}{0.016} \\
 \midrule
 \multirow{2}{*}{88 (10\%)} & RO & \pmsd{0.594}{0.089} & \pmsd{0.559}{0.103} & \textbf{\pmsd{0.811}{0.008}} \\
  & S2R & \pmsd{0.633}{0.020} & \pmsd{0.571}{0.022} & \pmsd{0.794}{0.005} \\
@@ -763,10 +801,10 @@ Labelled crops & Arm & Contact AUC & Group 1 vs.\ 3 AUC & Canal Dice \\
 \multirow{2}{*}{220 (25\%)} & RO & \pmsd{0.658}{0.028} & \pmsd{0.597}{0.034} & \textbf{\pmsd{0.839}{0.007}} \\
  & S2R & \pmsd{0.654}{0.004} & \pmsd{0.587}{0.003} & \pmsd{0.817}{0.006} \\
 \midrule
-\multirow{2}{*}{439 (50\%)} & RO & \textbf{\pmsd{0.722}{0.027}} & \textbf{\pmsd{0.683}{0.034}} & \textbf{\pmsd{0.858}{0.004}} \\
+\multirow{2}{*}{439 (50\%)} & RO & \pmsd{0.722}{0.027} & \pmsd{0.683}{0.034} & \textbf{\pmsd{0.858}{0.004}} \\
  & S2R & \pmsd{0.690}{0.002} & \pmsd{0.632}{0.005} & \pmsd{0.828}{0.002} \\
 \midrule
-\multirow{2}{*}{878 (100\%)} & RO & \textbf{\pmsd{0.745}{0.030}} & \textbf{\pmsd{0.697}{0.038}} & \textbf{\pmsd{0.866}{0.006}} \\
+\multirow{2}{*}{878 (100\%)} & RO & \pmsd{0.745}{0.030} & \pmsd{0.697}{0.038} & \textbf{\pmsd{0.866}{0.006}} \\
  & S2R & \pmsd{0.698}{0.012} & \pmsd{0.639}{0.012} & \pmsd{0.846}{0.009} \\
 \bottomrule
 \end{tabular}
@@ -824,12 +862,14 @@ Different structures want different randomization: strong noise and processing w
 a tooth survives easily. Simulation studies that tune or ablate only on the structure with real labels may be optimising
 the wrong objective for the rest. Validating each structure, or randomizing per structure, is a natural next step.
 
-\textbf{Contact from geometry.} A panoramic cannot show 3D contact directly, and the predicted 2D overlap indeed carries
-no information. A head trained on contact labels computed from CBCT recovers a weak but significant signal (AUC 0.60,
-confidence interval above 0.5) from the image alone, and it does so without a single real contact label. It is not
-clinically useful at this level. Its value is that it shows the 3D relation leaves a learnable trace in the projection,
-and that this trace can be learned from simulation. As a pretraining prior it pays off up to about 40 real crops; at
-around 100--200 crops the arms are level, and from about 400 a real-only model is clearly better. Our contact definition
+\textbf{Contact from geometry.} A panoramic cannot show 3D contact directly. Ground-truth 2D overlap and the best expert
+sign carry a moderate signal (AUC about 0.72), while our predicted overlap carries none. A head trained on contact
+labels computed from CBCT recovers a weak signal (AUC 0.60, confidence interval above 0.5) from the image alone, without
+a single real contact label. It is not clinically useful at this level, and it is weaker than what real annotations
+provide. Its value is that it shows the 3D relation leaves a learnable trace in the projection,
+and that this trace can be learned from simulation. As a pretraining prior it pays off only at the smallest budget (nine real crops); from 44
+crops the contact AUC of the two arms is statistically indistinguishable, and real-only training segments the canal
+better. Our contact definition
 and CONTACT's may not coincide: we use labels touching on the canal lumen, CONTACT uses a CBCT-confirmed relation.
 CONTACT also counts far more contact (74\%) than our synthetic population (33\%). The threshold analysis rules out the
 simplest explanation, a looser threshold, but other differences in definition may remain.
@@ -839,8 +879,8 @@ For dense-label tasks this argues against bridging the sim-to-real gap by changi
 inside the simulator keeps the labels correct by construction.
 
 \textbf{Limitations.} Real-image evaluation covers teeth (DENTEX) and the third molar, canal and contact (CONTACT). The
-sinus, pulp and incisive canal are evaluated on synthetic data only; we found no public expert panoramic labels for them,
-and we did not produce our own. DENTEX tooth polygons are coarse, and Dice rewards learning their style, which favours
+sinus, pulp and incisive canal are evaluated on synthetic data only: we found no public expert panoramic labels for
+them, and no dental radiologist was available to annotate them for this study. DENTEX tooth polygons are coarse, and Dice rewards learning their style, which favours
 models trained on DENTEX labels. CONTACT is distributed as crops without patient identifiers, so our validation split may
 share patients with training, and its official test set appears harder than its training pool. Most results use three
 seeds, and the seed-to-seed spread is not negligible. The panoramic model we report and use for initialisation is the
@@ -848,9 +888,14 @@ best of three seeds on DENTEX (0.774 against a mean of 0.755), and the crop mode
 CONTACT. The few-shot and contact experiments vary the fine-tuning seed but start from this one model. Training schedules
 were tuned per arm, not per label budget; a per-budget search might shift the crossover points somewhat, and on CONTACT
 the \sr\ result depended on the learning rate. The CycleGAN baseline is a single run of the standard architecture.
-Finally, ToothFairy3's field of view limits the simulation: most volumes do not include the upper jaw, orbits or
-condyles, the patients bite in an open position rather than on a bite block, and the simulated resolution (0.3\,mm) is
-coarser than that of a real panoramic.
+The simulator is monochromatic and ignores the polychromatic spectrum, beam hardening and scatter; the randomized
+contrast and processing ranges are meant to absorb these differences. Metal streak artefacts present in the CBCT volumes
+are carried into the renders, which probably explains part of why metal randomization hurt. Away from the focal trough
+the simulated horizontal and vertical magnifications differ, as in real units, but we did not compare their amounts
+with a real device. We validated the geometry with a bead phantom only and did not measure realism quantitatively, for
+example with a reader study. Finally, ToothFairy3 limits the simulation: most volumes do not include the upper jaw,
+orbits or condyles, the patients bite in an open position rather than on a bite block, and the voxel size (0.3\,mm) is
+coarser than the pixel size of a real panoramic (about 0.1\,mm).
 
 % =====================================================================================================================
 \section{Conclusion}
@@ -860,8 +905,8 @@ is enough to train a model that segments and numbers teeth on real panoramics wi
 real images, it matches real-only training on about ten times as many labels, although the advantage disappears once
 about 100 labelled images are available. Without randomization, simulation does not transfer. The paired ablation shows
 which parts of the simulation matter, and that the answer differs between structures. Simulated labels also carry
-information that no 2D annotation can: a contact head trained on 3D geometry alone detects true third-molar--canal
-contact above chance, where the visible overlap cannot, although a few hundred real contact labels overtake it.
+information that no 2D annotation can: a contact head trained on 3D geometry alone learns a weak, above-chance signal
+for true third-molar--canal contact without any real contact label, although a few dozen real contact labels match it.
 
 % =====================================================================================================================
 \section*{CRediT authorship contribution statement}

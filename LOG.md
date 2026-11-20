@@ -513,3 +513,20 @@
   declaration, acknowledgement (Lawrence HPC). New Fig. 1 (`scripts/make_fig_simulator.py`); journal versions of the
   dataset-image figures (`scripts/polish_data_figs.py`); baked-in captions removed from the plots. Few-shot tables
   restructured to one row per arm. paper_draft.md marked superseded. Figures/PDF git-ignored (dataset images).
+- **Reviewer round 1 — text fixes (2026-11-20)**:
+  - Contact reframed: predicted overlap at chance because zero-shot canal seg is weak; GT-mask overlap 0.717 (g1v3 0.60) and
+    best expert sign 0.72 added to Table 9 as references; head (0.596) = weak signal without real contact labels.
+    Native-resolution AUC 0.605 reported; matched res. was fixed a priori (scale analysis). Val–test gap marked as examined
+    after the fact; prevalence 33% vs 74% discussed.
+  - Test-set use: seed 0 was the first model and fixed as init before seeds 1–2 existed (not test-selected). Ablation +
+    retuning repeated on the 62 real val images from logged val Dice at the selected checkpoint: same sign for every factor,
+    ranking differs only by spine ↔ arch jitter (Table 4 val column). Retuned recipe not adopted. Framing crop uses
+    pool-label extents → disclosed.
+  - `scripts/stats_paired.py`: paired hierarchical bootstrap (seeds × images, 10k) → outputs/paper/stats.md. DENTEX S2R > RO
+    on FDI up to 96 images (p = 0.013), numbering up to 39 (p ≤ 0.003); n.s. from 192 (RO +0.005 FDI at 384, p = 0.06).
+    CONTACT: S2R > RO contact AUC only at 9 crops (p = 0.004); n.s. from 44 (RO lead at 439/878 p ≥ 0.11); RO canal Dice
+    better from 88 (p ≤ 0.005). Bold in Tables 3/10 now = p < 0.05; claims revised accordingly.
+  - Abstract cut to the key numbers; simulator-physics limitations added (monochromatic, no scatter/beam hardening, CBCT
+    metal streaks, magnification unvalidated, open bite, 0.3 vs 0.1 mm); annotation constraint stated; context vs ceiling.
+  - Decisions (user): run curved-slab baseline, in-domain SSL baseline, mandible external test (Abdi & Kasaei); keep contact
+    (reframed); prepare GitHub release.
