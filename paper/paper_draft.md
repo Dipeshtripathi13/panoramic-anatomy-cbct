@@ -1,3 +1,6 @@
+> **Superseded by `paper/latex/main.tex`** (2026-11-20), the Computers in Biology and Medicine manuscript
+> (build: `bash paper/build.sh`). This Markdown draft is no longer updated.
+
 # Learning Panoramic Anatomy from CBCT: Physics-Based Simulation and Domain Randomization for Zero- and Few-Shot Segmentation of Dental Panoramic Radiographs
 
 *Dipesh Tripathi¹, [co-authors to be confirmed]*

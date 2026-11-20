@@ -20,3 +20,6 @@ __pycache__/
 .DS_Store
 .ipynb_checkpoints/
 external/
+# Paper build products (figures contain dataset images)
+paper/latex/figures/
+paper/latex/*.pdf

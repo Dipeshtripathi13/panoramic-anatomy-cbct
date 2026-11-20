@@ -159,8 +159,6 @@ def ablation(tables: list[str]) -> None:
         ax.set_title(f"{title} when the factor is switched off", fontsize=8.5, color=INK)
         ax.grid(axis="y", visible=False)
     axes[0].set_yticks(y, [lab for _, lab in order])
-    fig.text(0.5, -0.04, "Paired ablation vs. all factors on (DENTEX test; bar = mean, whisker/dots = 3 seeds; "
-             "values beyond the axis are clipped).", ha="center", color=INK2, fontsize=7)
     fig.tight_layout()
     save(fig, "fig_ablation")
 
@@ -203,8 +201,6 @@ def followup(tables: list[str]) -> None:
         ax.set_title(title, fontsize=8.5, color=INK)
         ax.grid(axis="y", visible=False)
     axes[0].set_yticks(y, [lab for _, lab in FOLLOW])
-    fig.text(0.5, -0.06, "Δ vs. the ablation reference (DENTEX test; bar = mean, whisker/dots = 3 seeds).",
-             ha="center", color=INK2, fontsize=7)
     fig.tight_layout()
     save(fig, "fig_dr_followup")
 
@@ -265,7 +261,7 @@ def contact(tables: list[str]) -> None:
             (lambda m: m["dice_canal"]["mean"], "Canal Dice", zs["dice_canal"]["mean"])]
     fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.4))
     for ax, (fn, title, z) in zip(axes, keys):
-        for arm, col, lab in (("realonly_v2", C_BASE, "Real-only, tuned (ImageNet init)"),
+        for arm, col, lab in (("realonly_v2", C_BASE, "Real-only (ImageNet init)"),
                               ("sim2real_v3", C_OURS, "Sim→real (CBCT contact labels)")):
             m = np.array([stats([fn(x) for x in res[arm, f]]) for f in FRACS])
             ax.plot(n_img, m[:, 0], color=col, lw=2, marker="o", ms=4, label=lab)

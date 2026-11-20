@@ -506,3 +506,10 @@
   - Paper: abstract, findings, Section 4 (DENTEX schedule check, CONTACT both arms same schedule), 5.5 + Table 10, new
     Table 11 (schedule sensitivity), discussion, limitations (schedule not tuned per budget), conclusion. make_figures:
     contact S2R arm = ctfew_sim2real_v3; Table J added.
+- **Manuscript in Elsevier format (2026-11-20)**: `paper/latex/main.tex` (elsarticle, CBM) + `refs.bib` (33 refs, verified
+  data only: initials, "others" where unverified); build with `bash paper/build.sh` (tectonic) → `paper/latex/main.pdf`.
+  Author: Dipesh Tripathi, University of South Dakota, dipesh.tripathi@coyotes.usd.edu. No placeholders: abstract ≤ 250
+  words, highlights, keywords, CRediT, competing interest, funding, ethics, data availability (on request), generative-AI
+  declaration, acknowledgement (Lawrence HPC). New Fig. 1 (`scripts/make_fig_simulator.py`); journal versions of the
+  dataset-image figures (`scripts/polish_data_figs.py`); baked-in captions removed from the plots. Few-shot tables
+  restructured to one row per arm. paper_draft.md marked superseded. Figures/PDF git-ignored (dataset images).
