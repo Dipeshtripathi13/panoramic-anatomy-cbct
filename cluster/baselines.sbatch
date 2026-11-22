@@ -16,9 +16,15 @@
 #   MODE=mtfew     SEED=s sbatch --time=07:00:00 --array=0,2,3,5 cluster/baselines.sbatch
 #                        semi-supervised real-only: realonly_v2 recipe + mean teacher on unlabelled DENTEX → realonly_mt_f*_s*
 #                        (~3–4 h each), DENTEX + Tufts evaluation in the same job
-#   MODE=r2s             sbatch --array=0   cluster/baselines.sbatch   NeBLa-style test-time baseline: real DENTEX,
-#                        Tufts and mandible images translated to sim style by cyclegan_v1's G_BA, then segmented by the
-#                        nominal-render (no-DR) and randomized zero-shot models → eval_*_best_r2s (~1 h)
+#   MODE=r2s             sbatch --array=0-2 cluster/baselines.sbatch   NeBLa-style test-time baseline: real DENTEX,
+#                        Tufts and mandible images translated to sim style by G_BA of CycleGAN seed i (cyclegan_v1,
+#                        _s1, _s2), then segmented by the no-DR and randomized zero-shot models → eval_*_best_r2s{,_g1,_g2}
+#   MODE=cycgan          sbatch --time=24:00:00 --array=0-1 cluster/baselines.sbatch   CycleGAN seeds 1–2 (~3–5 h)
+#   MODE=cycseg          sbatch --time=06:00:00 --array=0-3 cluster/baselines.sbatch   segmentation on renders translated by
+#                        CycleGAN seed 1/2, without (tasks 0–1) and with (2–3) image DR → seg_cyclegan{,_dr}_s{1,2}
+#   MODE=mandcv          sbatch --array=0-11 cluster/baselines.sbatch  supervised mandible reference: 5-fold CV on the
+#                        Abdi set; task = arm (imagenet | TDI zero-shot seed s) × budget (all | 5 images) × seed s,
+#                        5 folds per task (~15 min each) → runs/mandcv_<arm>_n<budget>_s<s>_f<fold>
 #   MODE=tufts           sbatch --array=0-5 cluster/baselines.sbatch   Tufts external test: task 0 zero-shot models,
 #                        tasks 1–5 few-shot arms (realonly_v2, fewshot_sim2real, ssl_realonly, fewshot_slab, fewshot_nominal)
 #SBATCH --job-name=dental-base
@@ -60,12 +66,20 @@ case "$MODE" in
             args=(--config configs/train/fewshot.yaml --set real_train_frac=$frac real_repeat=$rep init_from=$init seed=$SEED) ;;
   mtfew)    run="realonly_mt_f${frac}_s${SEED}"
             args=(--config configs/train/realonly_mt.yaml --set real_train_frac=$frac real_repeat=$rep seed=$SEED) ;;
-  r2s)      cg="$PROJ/runs/cyclegan_v1/cyclegan.pt"; [ -f "$cg" ]; nw=$((SLURM_CPUS_PER_TASK - 2))
+  r2s)      gens=(cyclegan_v1 cyclegan_v1_s1 cyclegan_v1_s2); tags=("" _g1 _g2)
+            cg="$PROJ/runs/${gens[$i]}/cyclegan.pt"; [ -f "$cg" ]; tag=${tags[$i]}; nw=$((SLURM_CPUS_PER_TASK - 2))
             for r in seg_nominal_s0 seg_nominal_s1 seg_nominal_s2 seg_v1_dr_full seg_v1_dr_full_s1 seg_v1_dr_full_s2; do
-              python scripts/evaluate.py --run "$PROJ/runs/$r" --translate "$cg" --overlays 6 --num-workers $nw
-              python scripts/evaluate_tufts.py --run "$PROJ/runs/$r" --translate "$cg" --num-workers $nw
-              python scripts/evaluate_mandible.py --run "$PROJ/runs/$r" --translate "$cg" --overlays 0
+              python scripts/evaluate.py --run "$PROJ/runs/$r" --translate "$cg" --tag "$tag" --overlays 6 --num-workers $nw
+              python scripts/evaluate_tufts.py --run "$PROJ/runs/$r" --translate "$cg" --tag "$tag" --num-workers $nw
+              python scripts/evaluate_mandible.py --run "$PROJ/runs/$r" --translate "$cg" --tag "$tag" --overlays 0
             done; exit 0 ;;
+  cycgan)   SEED=$((i + 1)); python scripts/train_cyclegan.py --config configs/train/cyclegan_v1.yaml \
+              --set run_name=cyclegan_v1_s$SEED seed=$SEED out_root="$PROJ/runs" num_workers=$((SLURM_CPUS_PER_TASK - 2))
+            exit 0 ;;
+  cycseg)   SEED=$(( i % 2 + 1 )); G="$PROJ/runs/cyclegan_v1_s$SEED/cyclegan.pt"; [ -f "$G" ]
+            if [ $((i / 2)) -eq 0 ]; then run="seg_cyclegan_s$SEED"; extra=(image_factors='[]')
+            else run="seg_cyclegan_dr_s$SEED"; extra=(); fi
+            args=(--config configs/train/seg_v1.yaml --set synth_translate=$G seed=$SEED ${extra[@]+"${extra[@]}"}) ;;
   ssl)      python scripts/pretrain_ssl.py --run "$PROJ/runs/ssl_simclr"; exit 0 ;;
   sslfew)   init="$PROJ/runs/ssl_simclr/encoder.pt"; [ -f "$init" ]; run="ssl_realonly_f${frac}_s${SEED}"
             args=(--config configs/train/realonly_v2.yaml --set real_train_frac=$frac real_repeat=$rep init_from=$init seed=$SEED) ;;
@@ -88,6 +102,9 @@ case "$MODE" in
 esac
 python scripts/train.py "${args[@]}" --set run_name="$run" out_root="$PROJ/runs" num_workers=$((SLURM_CPUS_PER_TASK - 2))
 python scripts/evaluate.py --run "$PROJ/runs/$run" --overlays 0 --num-workers $((SLURM_CPUS_PER_TASK - 2))
-if [ "$MODE" = initfew ] || [ "$MODE" = mtfew ]; then
+if [ "$MODE" = cycseg ]; then
+  python scripts/evaluate_mandible.py --run "$PROJ/runs/$run" --overlays 0
+fi
+if [ "$MODE" = initfew ] || [ "$MODE" = mtfew ] || [ "$MODE" = cycseg ]; then
   python scripts/evaluate_tufts.py --run "$PROJ/runs/$run" --num-workers $((SLURM_CPUS_PER_TASK - 2))
 fi

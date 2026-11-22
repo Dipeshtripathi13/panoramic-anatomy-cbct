@@ -93,7 +93,8 @@ def main() -> None:
     ap.add_argument("--num-workers", type=int, default=4)
     ap.add_argument("--limit", type=int)
     ap.add_argument("--translate", type=Path, help="CycleGAN checkpoint: translate real images to sim style (G_BA) "
-                    "before segmenting (NeBLa-style test-time baseline) → eval_<ckpt>_r2s")
+                    "before segmenting (NeBLa-style test-time baseline) → eval_<ckpt>_r2s<tag>")
+    ap.add_argument("--tag", default="", help="suffix of the r2s output folder (one per translator)")
     args = ap.parse_args()
 
     ck = torch.load(args.run / f"{args.ckpt}.pt", map_location="cpu", weights_only=False)
@@ -128,7 +129,7 @@ def main() -> None:
                              "dice_jaw_all_fg": dice(np.ones_like(jaw_gt), jaw_gt),
                              **tooth_level(p[k, fdi_idx], fdi_gt, p[k, ti])})
 
-    out = args.run / f"eval_tufts_{args.ckpt}{'_r2s' if args.translate else ''}"
+    out = args.run / f"eval_tufts_{args.ckpt}{'_r2s' + args.tag if args.translate else ''}"
     out.mkdir(exist_ok=True)
     with open(out / "per_image.csv", "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0]))

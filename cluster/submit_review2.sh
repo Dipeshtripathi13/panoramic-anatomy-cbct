@@ -15,5 +15,5 @@ for arm in sim2real slab; do
   done
 done
 for s in 0 1 2; do ids+=($(MODE=mtfew SEED=$s sb --time=07:00:00 --array=0,2,3,5 cluster/baselines.sbatch)); done
-ids+=($(MODE=r2s sb --array=0 cluster/baselines.sbatch))
+ids+=($(MODE=r2s sb --array=0 cluster/baselines.sbatch))   # translators 1–2: submit_review2b.sh
 echo "submitted ${#ids[@]} array jobs: ${ids[*]}"

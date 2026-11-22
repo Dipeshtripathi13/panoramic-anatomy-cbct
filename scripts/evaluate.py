@@ -98,7 +98,8 @@ def main() -> None:
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--num-workers", type=int, default=4)
     ap.add_argument("--translate", type=Path, help="CycleGAN checkpoint: translate real images to sim style (G_BA) "
-                    "before segmenting (NeBLa-style test-time baseline) → eval_<ckpt>_r2s")
+                    "before segmenting (NeBLa-style test-time baseline) → eval_<ckpt>_r2s<tag>")
+    ap.add_argument("--tag", default="", help="suffix of the r2s output folder (one per translator)")
     args = ap.parse_args()
 
     ck = torch.load(args.run / f"{args.ckpt}.pt", map_location="cpu", weights_only=False)
@@ -111,7 +112,7 @@ def main() -> None:
     if args.translate:                          # real → sim translation at test time
         from dentalpano.train.cyclegan import Translated, load_generator
         model = Translated(load_generator(args.translate, dev, key="G_BA"), model).eval()
-    out = args.run / f"eval_{args.ckpt}{'_r2s' if args.translate else ''}"
+    out = args.run / f"eval_{args.ckpt}{'_r2s' + args.tag if args.translate else ''}"
     out.mkdir(exist_ok=True)
     git = __import__("subprocess").run(["git", "rev-parse", "HEAD"], capture_output=True, text=True,
                                        cwd=dio.REPO).stdout.strip()

@@ -59,7 +59,8 @@ def main() -> None:
     ap.add_argument("--ckpt", default="best")
     ap.add_argument("--overlays", type=int, default=6)
     ap.add_argument("--translate", type=Path, help="CycleGAN checkpoint: translate real images to sim style (G_BA) "
-                    "before segmenting (NeBLa-style test-time baseline) → eval_<ckpt>_r2s")
+                    "before segmenting (NeBLa-style test-time baseline) → eval_<ckpt>_r2s<tag>")
+    ap.add_argument("--tag", default="", help="suffix of the r2s output folder (one per translator)")
     args = ap.parse_args()
 
     ck = torch.load(args.run / f"{args.ckpt}.pt", map_location="cpu", weights_only=False)
@@ -89,7 +90,7 @@ def main() -> None:
         if len(shown) < args.overlays:
             shown.append((img[0].numpy(), pred, g1))
 
-    out_dir = args.run / f"eval_mandible_{args.ckpt}{'_r2s' if args.translate else ''}"
+    out_dir = args.run / f"eval_mandible_{args.ckpt}{'_r2s' + args.tag if args.translate else ''}"
     out_dir.mkdir(exist_ok=True)
     keys = ["dice_r1", "dice_r2", "dice_r1_r2", "dice_all_fg"]
     with open(out_dir / "per_image.csv", "w") as f:

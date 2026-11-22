@@ -591,3 +591,15 @@
     cyclegan_v1 G_BA, segmented by the no-DR and DR zero-shot models; `--translate` in all three evaluators → eval_*_r2s).
     Local smoke tests pass (MT training, regular training, r2s on DENTEX/Tufts/mandible with stand-in checkpoints).
   - Decisions (user): code public with full history, no Claude co-author on commits; no CycleGAN extra seeds.
+- **Reviewer round 2, part b (2026-11-22)** — the three items left open:
+  - Supervised mandible reference: `scripts/train_mandible_cv.py`, fixed 5-fold split `splits/abdi_mandible_folds.json`
+    (rng 0 permutation, fold k = perm[k::5]; 24/23/23/23/23). Arms ImageNet vs TDI zero-shot init (seed s uses zero-shot
+    seed s, avoiding the seed-0 confound), all ~93 training images vs 5, 3 seeds; same schedule (AdamW 1e-3, 3000 steps,
+    batch 8), last checkpoint (no selection on the test fold); train label = dentist 1, Dice vs mean of both, inside the
+    framing crop. MODE=mandcv (12 tasks × 5 folds). Smoke test OK (head mapping mandible → single channel verified).
+  - CycleGAN seeds: MODE=cycgan (cyclegan_v1_s1/_s2), MODE=cycseg (seg_cyclegan{,_dr}_s{1,2} + DENTEX/Tufts/mandible),
+    MODE=r2s now one task per translator (`--tag` → eval_*_r2s{,_g1,_g2}). `cluster/submit_review2b.sh`.
+  - Real labels for sinus/pulp/incisive canal: web search (2026-11-22) found no public panoramic dataset with pulp or
+    incisive-canal masks. Maxillary sinus: Park et al., arXiv 2604.20213 (626 expert-labelled panoramics, consensus of
+    an OMF radiologist and a dentist) — "available on request to the corresponding author" (sj.lee@jbnu.ac.kr). Request
+    drafted for the user to send. PanDent (arXiv 2607.27378, 9,554 PRs) not yet released; structures unspecified.
