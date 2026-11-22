@@ -1,6 +1,6 @@
 # Learning panoramic anatomy from CBCT
 
-Code for *Learning panoramic anatomy from CBCT: physics-based simulation and domain randomization for zero- and
+Code for *Learning panoramic anatomy from CBCT: simulation and domain randomization for zero- and
 few-shot segmentation of dental panoramic radiographs* (Dipesh Tripathi, University of South Dakota).
 
 A rotational panoramic (orthopantomograph) simulator renders panoramics from labelled cone-beam CT (ToothFairy3) and

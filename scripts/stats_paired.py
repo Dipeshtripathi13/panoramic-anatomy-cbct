@@ -21,40 +21,62 @@ FRACS = ["0.01", "0.05", "0.10", "0.25", "0.50", "1.00"]
 N_BOOT = 10_000
 
 
-def load_dentex(runs: list[str]) -> list[pd.DataFrame]:
-    return [pd.read_csv(RUNS / r / "eval_best" / "real_per_image.csv").set_index("image").sort_index() for r in runs]
+def _load(runs: list[str], sub: str, key: str) -> list[dict]:
+    """Per-image tables as {column: array} (plus "_index"), sorted by image so arms align."""
+    out = []
+    for r in runs:
+        df = pd.read_csv(RUNS / r / sub / ("real_per_image.csv" if sub == "eval_best" else "per_image.csv"))
+        df = df.set_index(key).sort_index()
+        out.append({"_index": df.index.to_numpy(), **{c: df[c].to_numpy(float) for c in df.columns}})
+    return out
 
 
-def load_contact(runs: list[str]) -> list[pd.DataFrame]:
-    return [pd.read_csv(RUNS / r / "eval_contact_best" / "per_image.csv").set_index("id").sort_index() for r in runs]
+def load_dentex(runs: list[str]) -> list[dict]:
+    return _load(runs, "eval_best", "image")
 
 
-def fdi(df, idx):
-    return df["dice_fdi_mean"].to_numpy()[idx].mean()
+def load_contact(runs: list[str]) -> list[dict]:
+    return _load(runs, "eval_contact_best", "id")
 
 
-def numbering(df, idx):
-    return df["n_number_ok"].to_numpy()[idx].sum() / max(df["n_detected"].to_numpy()[idx].sum(), 1)
+def load_tufts(runs: list[str]) -> list[dict]:
+    return _load(runs, "eval_tufts_best", "image")
 
 
-def teeth(df, idx):
-    return df["dice_teeth"].to_numpy()[idx].mean()
+def load_mandible(runs: list[str]) -> list[dict]:
+    return _load(runs, "eval_mandible_best", "id")
 
 
-def auc(df, idx, col="matched_contact_prob", g13=False):
-    d = df.iloc[idx]
+def fdi(d, idx):
+    return np.nanmean(d["dice_fdi_mean"][idx])
+
+
+def numbering(d, idx):
+    return d["n_number_ok"][idx].sum() / max(d["n_detected"][idx].sum(), 1)
+
+
+def teeth(d, idx):
+    return np.nanmean(d["dice_teeth"][idx])
+
+
+def mandible(d, idx):
+    return ((d["dice_r1"][idx] + d["dice_r2"][idx]) / 2).mean()
+
+
+def auc(d, idx, col="matched_contact_prob", g13=False):
+    y, s, g = d["contact"][idx], d[col][idx], d["group"][idx]
     if g13:
-        d = d[d["group"].isin([1, 3])]
-    return roc_auc_score(d["contact"], d[col])
+        y, s = y[np.isin(g, [1, 3])], s[np.isin(g, [1, 3])]
+    return roc_auc_score(y, s)
 
 
-def canal(df, idx):
-    return df["matched_dice_canal"].to_numpy()[idx].mean()
+def canal(d, idx):
+    return d["matched_dice_canal"][idx].mean()
 
 
 def compare(a: list[pd.DataFrame], b: list[pd.DataFrame], stat, rng) -> tuple[float, float, float, float]:
-    assert all((x.index == a[0].index).all() for x in a + b), "arms must share the same test images"
-    n = len(a[0])
+    assert all((x["_index"] == a[0]["_index"]).all() for x in a + b), "arms must share the same test images"
+    n = len(a[0]["_index"])
     full = np.arange(n)
     point = np.mean([stat(x, full) for x in a]) - np.mean([stat(x, full) for x in b])
     diffs = np.empty(N_BOOT)
@@ -92,6 +114,33 @@ def main() -> None:
         b = load_dentex([f"realonly_v2_f{f}_s{s}" for s in range(3)])
         k = max(1, int(np.ceil(float(f) * 384)))
         lines.append(f"| {k} | {fmt(compare(a, b, fdi, rng))} | {fmt(compare(a, b, numbering, rng))} |")
+
+    lines += ["", "## Simulator: TDI (ours) − curved summed slab, both randomized (zero-shot, 3 seeds each)",
+              "| Test set | Teeth Dice | FDI Dice | Numbering |", "|---|---|---|---|"]
+    slab = [f"seg_slab_s{s}" for s in range(3)]
+    lines.append("| DENTEX | " + " | ".join(fmt(compare(dr, load_dentex(slab), f, rng)) for f in (teeth, fdi, numbering))
+                 + " |")
+    zs = ["seg_v1_dr_full", "seg_v1_dr_full_s1", "seg_v1_dr_full_s2"]
+    a, b = load_tufts(zs), load_tufts(slab)
+    lines.append("| Tufts | " + " | ".join(fmt(compare(a, b, f, rng)) for f in (teeth, fdi, numbering)) + " |")
+    lines.append(f"| Mandible (Abdi) | {fmt(compare(load_mandible(zs), load_mandible(slab), mandible, rng))} | | |")
+
+    def few_table(title, loader, arm_a, arm_b, n_pool=384):
+        nonlocal lines
+        lines += ["", f"## {title}", "| Images | FDI Dice | Numbering |", "|---|---|---|"]
+        for f in FRACS:
+            a = loader([f"{arm_a}_f{f}_s{s}" for s in range(3)])
+            b = loader([f"{arm_b}_f{f}_s{s}" for s in range(3)])
+            k = max(1, int(np.ceil(float(f) * n_pool)))
+            lines.append(f"| {k} | {fmt(compare(a, b, fdi, rng))} | {fmt(compare(a, b, numbering, rng))} |")
+
+    few_table("Few-shot DENTEX: sim→real TDI − sim→real slab", load_dentex, "fewshot_sim2real", "fewshot_slab")
+    few_table("Few-shot DENTEX: sim→real − real-only with in-domain SSL init", load_dentex, "fewshot_sim2real",
+              "ssl_realonly")
+    few_table("Few-shot DENTEX: SSL init − ImageNet init (real-only)", load_dentex, "ssl_realonly", "realonly_v2")
+    few_table("Tufts (trained on DENTEX labels): sim→real − real-only", load_tufts, "fewshot_sim2real", "realonly_v2")
+    few_table("Tufts: sim→real − SSL real-only", load_tufts, "fewshot_sim2real", "ssl_realonly")
+    few_table("Tufts: sim→real TDI − sim→real slab", load_tufts, "fewshot_sim2real", "fewshot_slab")
 
     lines += ["", "## Few-shot CONTACT: sim→real (lr 1e-3, 90 ep) − real-only (same schedule)",
               "| Crops | Contact AUC | Group 1 vs 3 AUC | Canal Dice |", "|---|---|---|---|"]

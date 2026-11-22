@@ -49,57 +49,91 @@ def stats(vals) -> tuple[float, float]:
     return float(v.mean()), float(v.std(ddof=1)) if len(v) > 1 else 0.0
 
 
-# ---------------------------------------------------------------- DENTEX few-shot
-# Arms: run-name prefix, colour, legend label. Real-only = retuned baseline (lr 1e-3, 120 epochs; the first grid,
-# fewshot_realonly_*, used the fine-tuning schedule and was undertrained, see LOG.md). No-DR = fine-tuned from the
-# nominal-render model (PXseg-style pretraining). Both sim arms use the fewshot.yaml schedule.
-FEW_ARMS = [("realonly_v2", C_BASE, "Real-only (ImageNet init)"),
-            ("fewshot_nominal", C_3, "Sim→real, no randomization"),
-            ("fewshot_sim2real", C_OURS, "Sim→real, randomized (ours)")]
+# ---------------------------------------------------------------- DENTEX few-shot (+ Tufts cross-dataset)
+# Arms: run-name prefix, colour, line style, legend label. Real-only = retuned baseline (lr 1e-3, 120 epochs; the first
+# grid, fewshot_realonly_*, used the fine-tuning schedule and was undertrained, see LOG.md); SSL = the same recipe from
+# the SimCLR encoder (pretrain_ssl.py). No-DR = fine-tuned from the nominal-render model (PXseg-style pretraining);
+# slab = fine-tuned from the curved summed-slab model. All sim arms use the fewshot.yaml schedule. Hue = family
+# (real-only / randomized sim / unrandomized sim), line style = variant within it.
+FEW_ARMS = [("realonly_v2", C_BASE, "-", "Real-only, ImageNet init"),
+            ("ssl_realonly", C_BASE, "--", "Real-only, in-domain SimCLR init"),
+            ("fewshot_nominal", C_3, "-", "Sim→real, no randomization"),
+            ("fewshot_slab", C_OURS, "--", "Sim→real, randomized curved slab"),
+            ("fewshot_sim2real", C_OURS, "-", "Sim→real, randomized TDI (ours)")]
+ZS_DR = ("seg_v1_dr_full", "seg_v1_dr_full_s1", "seg_v1_dr_full_s2")
 
 
 def dentex_fewshot(tables: list[str]) -> None:
-    metrics = [("real_dice_teeth", "mean", "Teeth Dice"), ("real_dice_fdi_mean", "mean", "Per-tooth (FDI) Dice"),
-               ("real_tooth_numbering_acc", "value", "Numbering accuracy")]
+    tests = [("eval_best", "DENTEX test (187)", [("real_dice_teeth", "mean"), ("real_dice_fdi_mean", "mean"),
+                                                 ("real_tooth_numbering_acc", "value")]),
+             ("eval_tufts_best", "Tufts (886)", [("dice_teeth", "mean"), ("dice_fdi_mean", "mean"),
+                                                ("tooth_numbering_acc", "value")])]
+    titles = ("Teeth Dice", "Per-tooth (FDI) Dice", "Numbering accuracy")
     n_img = [max(1, int(np.ceil(float(f) * 384))) for f in FRACS]
-    zs = [jload(RUNS / r / "eval_best" / "metrics.json") for r in ("seg_v1_dr_full", "seg_v1_dr_full_s1", "seg_v1_dr_full_s2")]
-    res = {}
-    for arm, _, _ in FEW_ARMS:
-        for f in FRACS:
-            js = [jload(RUNS / f"{arm}_f{f}_s{s}" / "eval_best" / "metrics.json") for s in SEEDS]
-            res[arm, f] = [j for j in js if j]
-    fig, axes = plt.subplots(1, 3, figsize=(7.2, 2.5))
-    for ax, (key, sub, title) in zip(axes, metrics):
-        for arm, col, lab in FEW_ARMS:
-            m = np.array([stats([j[key][sub] for j in res[arm, f]]) for f in FRACS])
-            ax.plot(n_img, m[:, 0], color=col, lw=2, marker="o", ms=4, label=lab)
-            ax.fill_between(n_img, m[:, 0] - m[:, 1], m[:, 0] + m[:, 1], color=col, alpha=0.15, lw=0)
-        ax.axhline(np.mean([j[key][sub] for j in zs]), color=INK2, lw=1.2, ls="--",
-                   label="Zero-shot, randomized (0 labels, 3 seeds)")
-        ax.set_xscale("log")
-        ax.set_xticks(n_img, [str(n) for n in n_img])
-        ax.minorticks_off()
-        ax.set_xlabel("Labelled real images")
-        ax.set_title(title, color=INK, fontsize=8.5)
-    axes[0].set_ylabel("DENTEX test (187 images)")
-    h, l = axes[0].get_legend_handles_labels()
-    fig.legend(h, l, loc="upper center", ncol=2, bbox_to_anchor=(0.5, 1.13))
+    fig, axes = plt.subplots(2, 3, figsize=(7.2, 4.6))
+    for row, (ev, test, metrics) in enumerate(tests):
+        zs = [jload(RUNS / r / ev / "metrics.json") for r in ZS_DR]
+        res = {(arm, f): [j for s in SEEDS if (j := jload(RUNS / f"{arm}_f{f}_s{s}" / ev / "metrics.json"))]
+               for arm, *_ in FEW_ARMS for f in FRACS}
+        for ax, (key, sub), title in zip(axes[row], metrics, titles):
+            for arm, col, ls, lab in FEW_ARMS:
+                m = np.array([stats([j[key][sub] for j in res[arm, f]]) for f in FRACS])
+                ax.plot(n_img, m[:, 0], color=col, ls=ls, lw=1.8, marker="o", ms=3.5, label=lab)
+                ax.fill_between(n_img, m[:, 0] - m[:, 1], m[:, 0] + m[:, 1], color=col, alpha=0.12, lw=0)
+            ax.axhline(np.mean([j[key][sub] for j in zs]), color=INK2, lw=1.1, ls=":",
+                       label="Zero-shot, randomized TDI (0 labels)")
+            ax.set_xscale("log")
+            ax.set_xticks(n_img, [str(n) for n in n_img])
+            ax.minorticks_off()
+            if row == 1:
+                ax.set_xlabel("Labelled real DENTEX images")
+            if row == 0:
+                ax.set_title(title, color=INK, fontsize=8.5)
+        axes[row, 0].set_ylabel(test)
+
+        rows = ["| Labelled images | " + " | ".join(f"{t} (RO / SSL / NoDR / slab / DR)" for t in titles) + " |",
+                "|---|" + "---|" * len(metrics)]
+        for f, n in zip(FRACS, n_img):
+            cells = []
+            for k, s, in metrics:
+                v = [stats([j[k][s] for j in res[arm, f]]) for arm, *_ in FEW_ARMS]
+                top = int(np.argmax([m for m, _ in v]))
+                cells.append(" / ".join((f"**{m:.3f}±{sd:.3f}**" if i == top else f"{m:.3f}±{sd:.3f}")
+                                        for i, (m, sd) in enumerate(v)))
+            rows.append(f"| {n} ({float(f):.0%}) | " + " | ".join(cells) + " |")
+        tables += [f"### Table A{row + 1} — few-shot on DENTEX labels, tested on {test} (mean ± sd over 3 seeds)",
+                   *rows, ""]
+    h, l = axes[0, 0].get_legend_handles_labels()
+    fig.legend(h, l, loc="upper center", ncol=3, bbox_to_anchor=(0.5, 1.08))
     fig.tight_layout()
     save(fig, "fig_fewshot_dentex")
 
-    head = " / ".join(("RO", "NoDR", "DR"))
-    rows = ["| Labelled images | " + " | ".join(f"{t} {head}" for *_, t in metrics) + " |",
-            "|---|" + "---|" * len(metrics)]
-    for f, n in zip(FRACS, n_img):
+
+def external(tables: list[str]) -> None:
+    """Zero-shot on the two external test sets (Tufts, Abdi mandible), plus DENTEX, by training-image source."""
+    arms = [("TDI, randomized (ours)", ZS_DR), ("Curved slab, randomized", [f"seg_slab_s{s}" for s in SEEDS]),
+            ("TDI, no randomization", [f"seg_nominal_s{s}" for s in SEEDS]), ("CycleGAN-translated", ["seg_cyclegan"])]
+    cols = [("eval_best", "real_dice_teeth", "mean"), ("eval_best", "real_dice_fdi_mean", "mean"),
+            ("eval_best", "real_tooth_numbering_acc", "value"),
+            ("eval_tufts_best", "dice_teeth", "mean"), ("eval_tufts_best", "dice_fdi_mean", "mean"),
+            ("eval_tufts_best", "tooth_detection_rate", "value"), ("eval_tufts_best", "tooth_numbering_acc", "value"),
+            ("eval_tufts_best", "dice_jaw", "mean"), ("eval_mandible_best", "dice_mandible", "mean")]
+    rows = ["| Training images | runs | DENTEX teeth | DENTEX FDI | DENTEX numb. | Tufts teeth | Tufts FDI | "
+            "Tufts det. | Tufts numb. | Tufts jaw | Mandible |", "|---|---|" + "---|" * len(cols)]
+    for lab, rs in arms:
         cells = []
-        for k, s, _ in metrics:
-            v = [stats([j[k][s] for j in res[arm, f]]) for arm, _, _ in FEW_ARMS]
-            top = int(np.argmax([m for m, _ in v]))
-            cells.append(" / ".join((f"**{m:.3f}±{sd:.3f}**" if i == top else f"{m:.3f}±{sd:.3f}")
-                                    for i, (m, sd) in enumerate(v)))
-        rows.append(f"| {n} ({float(f):.0%}) | " + " | ".join(cells) + " |")
-    tables += ["### Table A — DENTEX few-shot (test, mean ± sd over 3 seeds; RO = real-only retuned, "
-               "NoDR = sim→real from nominal renders, DR = sim→real from randomized renders)", *rows, ""]
+        for ev, k, sub in cols:
+            js = [jload(RUNS / r / ev / "metrics.json") for r in rs]
+            if not all(js):
+                return
+            m, sd = stats([j[k][sub] for j in js])
+            cells.append(f"{m:.3f}±{sd:.3f}" if len(js) > 1 else f"{m:.3f}")
+        rows.append(f"| {lab} | {len(rs)} | " + " | ".join(cells) + " |")
+    t = jload(RUNS / ZS_DR[0] / "eval_tufts_best" / "metrics.json")
+    md = jload(RUNS / ZS_DR[0] / "eval_mandible_best" / "metrics.json")
+    rows += ["", f"Floors/ceilings: Tufts jaw all-foreground {t['dice_jaw_all_fg']['mean']:.3f}; mandible "
+                 f"all-foreground {md['all_foreground_baseline_dice']:.3f}, inter-rater {md['interrater_dice']['mean']:.3f}"]
+    tables += ["### Table K — Zero-shot on DENTEX and the external test sets by training-image source", *rows, ""]
 
 
 def zero_shot_sources(tables: list[str]) -> None:
@@ -381,6 +415,7 @@ def main() -> None:
     zero_shot_seeds(tables)
     dentex_fewshot(tables)
     zero_shot_sources(tables)
+    external(tables)
     ablation(tables)
     followup(tables)
     cyclegan(tables)

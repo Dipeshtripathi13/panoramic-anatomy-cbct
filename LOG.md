@@ -550,3 +550,26 @@
   (permanent teeth only; 32 edentulous + 82 with primary teeth excluded). Jaw-region Dice vs maxillomandibular ROI is
   near-uninformative (all-foreground floor ≈ 0.78) → secondary only. MODE=tufts: zero-shot models + every few-shot arm
   (cross-dataset generalisation of DENTEX-trained models), chained after the few-shot jobs in submit_review1.sh.
+- **Reviewer round 1 — results (2026-11-22)**: all jobs finished (slab renders/3 seeds/18 few-shot, SimCLR 400 ep
+  (final loss 1.106, 36 min) + 18 SSL few-shot, mandible on 10 zero-shot models, Tufts on 100 models). Paired bootstrap
+  in `outputs/paper/stats.md` (new sections appended before CONTACT → CONTACT p-values moved by Monte-Carlo noise:
+  0.004→0.003, canal ≤0.005→≤0.008; paper synced).
+  - **Curved slab vs TDI** (same DR draws): zero-shot equal on DENTEX (FDI 0.586 vs 0.582, p = 0.72; slab numbering
+    better 0.911 vs 0.900, p = 0.035), Tufts and mandible (p ≥ 0.14). Few-shot DENTEX: TDI init better at every budget,
+    FDI +0.011…+0.024 (p ≤ 0.003), numbering +0.007…+0.013 (p ≤ 0.047); Tufts numbering up to 39 images (p < 0.001).
+    → zero-shot transfer comes from DR + labels, not the rotational geometry; "physics-based" dropped from title and
+    from claims about transfer (kept as a description of the simulator).
+  - **SimCLR init vs ImageNet** (real-only): FDI unchanged at every budget (|Δ| ≤ 0.02, n.s.); numbering +0.005…+0.026 at
+    20/39/384 (p ≤ 0.041). Sim→real > SSL on FDI up to 96 images (p ≤ 0.027), numbering up to 20; SSL +0.007 numbering
+    at 384 (p = 0.038).
+  - **Tufts zero-shot** (886): teeth 0.770±0.022, FDI 0.638±0.022, det 0.855, numbering 0.930±0.005; no-DR FDI 0.102,
+    CycleGAN 0.119. DENTEX-fine-tuned models do not beat zero-shot teeth Dice on Tufts (contour masks) → supports the
+    annotation-style reading. Cross-dataset few-shot: sim→real > real-only on FDI at every budget incl. 384 (+0.013,
+    p = 0.003), numbering up to 192 (p ≤ 0.031); > SSL on FDI at every budget (p ≤ 0.008). Jaw-region Dice 0.839 vs
+    all-foreground 0.785 → not informative, mentioned only.
+  - **Mandible** (116, never labelled in training): 0.892±0.005 (seed 0 0.897 [0.876, 0.916]); slab 0.897; no-DR
+    0.590±0.310; CycleGAN 0.815; floor 0.714, inter-rater 0.987.
+  - Paper: title → "…from CBCT: simulation and domain randomization for…"; Methods (external sets, slab, SSL); Table 3 now
+    five arms; new §"Rotational geometry versus a curved slab" and §"External tests" with Table (external); Fig. few-shot
+    gets a Tufts row; abstract (249 words), highlights, intro, related work, discussion, limitations, conclusion, data
+    availability updated. Refs: abdi2015, abdi2020data (DOI-verified), chen2020 (SimCLR).
