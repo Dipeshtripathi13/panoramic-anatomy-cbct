@@ -4,13 +4,20 @@ Model selection uses SYNTHETIC validation only (zero-shot setting); real DENTEX 
 evaluated and logged but never used to choose checkpoints or hyperparameters. Real-data training
 (few-shot / real-only baselines) is enabled with `real_train_frac` > 0.
 
+Semi-supervised baseline (`mean_teacher` block): a mean teacher (Tarvainen & Valpola 2017) on the unlabelled DENTEX
+pool. The teacher is an EMA of the student; on each unlabelled batch, student and teacher see the same image under
+independent intensity/noise perturbations, and the MSE between their sigmoid outputs on the channels supervised on real
+images is added with a sigmoid ramp-up. Validation, selection and checkpoints use the teacher.
+
 Outputs in <out_root>/<run_name>/: config.json (config + git hash), log.csv, best.pt, last.pt.
 Usage: python scripts/train.py --config configs/train/seg_v1.yaml [--set key=value ...]
 """
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
+import itertools
 import json
 import math
 import subprocess
@@ -24,7 +31,7 @@ from torch.utils.data import ConcatDataset, DataLoader, Subset
 
 from dentalpano import io as dio
 from dentalpano.train.crops import CONTACT_MM, CROP_CHANNELS, ContactDataset, SynthCropDataset
-from dentalpano.train.cyclegan import load_generator
+from dentalpano.train.cyclegan import DentexImages, load_generator
 from dentalpano.train.data import STRUCTURES, TOOTH_CHANNELS, DentexDataset, SynthDataset
 from dentalpano.train.model import auc, build_model, contact_loss, device, dice_scores, forward, masked_loss
 
@@ -71,6 +78,16 @@ def evaluate(model, loader, dev, channels, max_batches=None, pre=None):
         score, y = torch.cat(cs).numpy(), torch.cat(cy).numpy()
         extra["contact_auc"] = auc(score[y >= 0], y[y >= 0])
     return float(np.mean(losses)), per, extra
+
+
+def perturb(x: torch.Tensor) -> torch.Tensor:
+    """Mean-teacher input noise: per-image contrast/brightness/gamma jitter + Gaussian noise; x in [0, 1]."""
+    shape = (x.shape[0], 1, 1, 1)
+    c = torch.empty(shape, device=x.device).uniform_(0.8, 1.2)
+    m = x.mean((2, 3), keepdim=True)
+    x = ((x - m) * c + m + torch.empty(shape, device=x.device).uniform_(-0.1, 0.1)).clamp(0, 1)
+    x = x ** torch.exp(torch.empty(shape, device=x.device).uniform_(math.log(0.8), math.log(1.25)))
+    return (x + 0.03 * torch.randn_like(x)).clamp(0, 1)
 
 
 def pick_fraction(names, frac, seed):
@@ -173,6 +190,14 @@ def main() -> None:
         assert not cfg.get("real_train_frac"), "synth_translate assumes synthetic-only training batches"
         G = load_generator(cfg["synth_translate"], dev)
         translate = lambda x: G(x).clamp(0, 1)
+    mt = cfg.get("mean_teacher")
+    if mt:                                      # semi-supervised baseline on the unlabelled DENTEX pool
+        teacher = copy.deepcopy(model).requires_grad_(False)
+        unl_names = json.loads((dio.REPO / "splits" / "dentex.json").read_text())["unlabelled"]
+        unl_iter = itertools.cycle(DataLoader(DentexImages(unl_names, cfg["size"]), batch_size=cfg["batch_size"],
+                                              shuffle=True, num_workers=nw, drop_last=True,
+                                              persistent_workers=nw > 0))
+        cons_idx = [channels.index(c) for c in ["teeth", *TOOTH_CHANNELS]]   # channels supervised on real images
     opt = torch.optim.AdamW(model.parameters(), lr=cfg["lr"], weight_decay=cfg.get("weight_decay", 1e-4))
     steps = cfg["epochs"] * len(train_loader)
     sched = torch.optim.lr_scheduler.OneCycleLR(opt, max_lr=cfg["lr"], total_steps=max(steps, 1), pct_start=0.05)
@@ -199,19 +224,35 @@ def main() -> None:
             loss, parts = masked_loss(logits.float(), tgt, wgt, cfg.get("dice_weight", 1.0))
             if cl is not None and len(batch) > 4:
                 loss = loss + cfg["contact_weight"] * contact_loss(cl.float(), batch[4].float().to(dev))
+            if mt:
+                xu = next(unl_iter)[0].to(dev, non_blocking=True)
+                with torch.no_grad(), torch.autocast(device_type="cuda", dtype=torch.float16, enabled=use_amp):
+                    pt = torch.sigmoid(forward(teacher, perturb(xu))[0].float()[:, cons_idx])
+                with torch.autocast(device_type="cuda", dtype=torch.float16, enabled=use_amp):
+                    ps = torch.sigmoid(forward(model, perturb(xu))[0].float()[:, cons_idx])
+                t = min(1.0, (epoch * len(train_loader) + b) / max(1, mt.get("rampup", 0.4) * steps))
+                loss = loss + mt.get("weight", 0.1) * math.exp(-5 * (1 - t) ** 2) * ((ps - pt) ** 2).mean()
             opt.zero_grad(set_to_none=True)
             scaler.scale(loss).backward()
             scaler.step(opt)
             scaler.update()
             sched.step()
+            if mt:
+                with torch.no_grad():
+                    a = mt.get("ema", 0.99)
+                    for pt_, ps_ in zip(teacher.parameters(), model.parameters()):
+                        pt_.mul_(a).add_(ps_.detach(), alpha=1 - a)
+                    for bt, bs in zip(teacher.buffers(), model.buffers()):
+                        bt.copy_(bs)
             tl.append(loss.item())
         row = {"epoch": epoch, "train_loss": float(np.mean(tl)), "minutes": round((time.time() - t0) / 60, 2)}
         every = cfg.get("val_every", 1)      # long schedules validate (and can select) every k-th epoch + the last
+        net = teacher if mt else model          # mean teacher: validate, select and save the teacher
         if (epoch + 1) % every and epoch + 1 != cfg["epochs"]:
-            torch.save({"model": model.state_dict(), "channels": channels, "epoch": epoch, "cfg": cfg}, out / "last.pt")
+            torch.save({"model": net.state_dict(), "channels": channels, "epoch": epoch, "cfg": cfg}, out / "last.pt")
             continue
         for name, loader in val_loaders.items():
-            vl, per, extra = evaluate(model, loader, dev, channels, cfg.get("max_val_batches"),
+            vl, per, extra = evaluate(net, loader, dev, channels, cfg.get("max_val_batches"),
                                       pre=translate if name == "synth" else None)
             row[f"{name}_loss"] = vl
             row.update({f"{name}_{k}": round(v, 4) for k, v in extra.items()})
@@ -223,8 +264,8 @@ def main() -> None:
         score = row.get(sel_key, float("nan"))
         if np.isfinite(score) and score > best:
             best = score
-            torch.save({"model": model.state_dict(), "channels": channels, "epoch": epoch, "cfg": cfg}, out / "best.pt")
-        torch.save({"model": model.state_dict(), "channels": channels, "epoch": epoch, "cfg": cfg}, out / "last.pt")
+            torch.save({"model": net.state_dict(), "channels": channels, "epoch": epoch, "cfg": cfg}, out / "best.pt")
+        torch.save({"model": net.state_dict(), "channels": channels, "epoch": epoch, "cfg": cfg}, out / "last.pt")
         new = not log_path.exists()
         with open(log_path, "a", newline="") as fh:
             w = csv.DictWriter(fh, fieldnames=sorted(row), extrasaction="ignore")

@@ -9,6 +9,16 @@
 #   MODE=ssl             sbatch --array=0   cluster/baselines.sbatch   SimCLR on unlabelled DENTEX → runs/ssl_simclr
 #   MODE=sslfew    SEED=s sbatch --array=0-5 cluster/baselines.sbatch   real-only (tuned) from the SSL encoder (~2 h each)
 #   MODE=mandible        sbatch --array=0   cluster/baselines.sbatch   mandible external test of every zero-shot model
+#   MODE=initfew ARM=sim2real|slab INIT=1|2 SEED=s sbatch --array=0,2,3,5 cluster/baselines.sbatch
+#                        few-shot from initialisation seed INIT of the TDI (seg_v1_dr_full_s*) or slab (seg_slab_s*)
+#                        zero-shot model → fewshot_<ARM>_i<INIT>_f*_s*; INIT=0 are the existing fewshot_<ARM>_f*_s* runs.
+#                        DENTEX + Tufts evaluation in the same job (~1 h each)
+#   MODE=mtfew     SEED=s sbatch --time=07:00:00 --array=0,2,3,5 cluster/baselines.sbatch
+#                        semi-supervised real-only: realonly_v2 recipe + mean teacher on unlabelled DENTEX → realonly_mt_f*_s*
+#                        (~3–4 h each), DENTEX + Tufts evaluation in the same job
+#   MODE=r2s             sbatch --array=0   cluster/baselines.sbatch   NeBLa-style test-time baseline: real DENTEX,
+#                        Tufts and mandible images translated to sim style by cyclegan_v1's G_BA, then segmented by the
+#                        nominal-render (no-DR) and randomized zero-shot models → eval_*_best_r2s (~1 h)
 #   MODE=tufts           sbatch --array=0-5 cluster/baselines.sbatch   Tufts external test: task 0 zero-shot models,
 #                        tasks 1–5 few-shot arms (realonly_v2, fewshot_sim2real, ssl_realonly, fewshot_slab, fewshot_nominal)
 #SBATCH --job-name=dental-base
@@ -44,6 +54,18 @@ case "$MODE" in
             args=(--config configs/train/seg_slab.yaml --set seed=$SEED) ;;
   slabfew)  init="$PROJ/runs/seg_slab_s0/best.pt"; [ -f "$init" ]; run="fewshot_slab_f${frac}_s${SEED}"
             args=(--config configs/train/fewshot.yaml --set real_train_frac=$frac real_repeat=$rep init_from=$init seed=$SEED) ;;
+  initfew)  case "$ARM" in sim2real) init="$PROJ/runs/seg_v1_dr_full_s${INIT}/best.pt" ;;
+                            slab) init="$PROJ/runs/seg_slab_s${INIT}/best.pt" ;; esac
+            [ -f "$init" ]; run="fewshot_${ARM}_i${INIT}_f${frac}_s${SEED}"
+            args=(--config configs/train/fewshot.yaml --set real_train_frac=$frac real_repeat=$rep init_from=$init seed=$SEED) ;;
+  mtfew)    run="realonly_mt_f${frac}_s${SEED}"
+            args=(--config configs/train/realonly_mt.yaml --set real_train_frac=$frac real_repeat=$rep seed=$SEED) ;;
+  r2s)      cg="$PROJ/runs/cyclegan_v1/cyclegan.pt"; [ -f "$cg" ]; nw=$((SLURM_CPUS_PER_TASK - 2))
+            for r in seg_nominal_s0 seg_nominal_s1 seg_nominal_s2 seg_v1_dr_full seg_v1_dr_full_s1 seg_v1_dr_full_s2; do
+              python scripts/evaluate.py --run "$PROJ/runs/$r" --translate "$cg" --overlays 6 --num-workers $nw
+              python scripts/evaluate_tufts.py --run "$PROJ/runs/$r" --translate "$cg" --num-workers $nw
+              python scripts/evaluate_mandible.py --run "$PROJ/runs/$r" --translate "$cg" --overlays 0
+            done; exit 0 ;;
   ssl)      python scripts/pretrain_ssl.py --run "$PROJ/runs/ssl_simclr"; exit 0 ;;
   sslfew)   init="$PROJ/runs/ssl_simclr/encoder.pt"; [ -f "$init" ]; run="ssl_realonly_f${frac}_s${SEED}"
             args=(--config configs/train/realonly_v2.yaml --set real_train_frac=$frac real_repeat=$rep init_from=$init seed=$SEED) ;;
@@ -66,3 +88,6 @@ case "$MODE" in
 esac
 python scripts/train.py "${args[@]}" --set run_name="$run" out_root="$PROJ/runs" num_workers=$((SLURM_CPUS_PER_TASK - 2))
 python scripts/evaluate.py --run "$PROJ/runs/$run" --overlays 0 --num-workers $((SLURM_CPUS_PER_TASK - 2))
+if [ "$MODE" = initfew ] || [ "$MODE" = mtfew ]; then
+  python scripts/evaluate_tufts.py --run "$PROJ/runs/$run" --num-workers $((SLURM_CPUS_PER_TASK - 2))
+fi

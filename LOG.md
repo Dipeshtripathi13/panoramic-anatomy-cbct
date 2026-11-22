@@ -573,3 +573,21 @@
     five arms; new §"Rotational geometry versus a curved slab" and §"External tests" with Table (external); Fig. few-shot
     gets a Tufts row; abstract (249 words), highlights, intro, related work, discussion, limitations, conclusion, data
     availability updated. Refs: abdi2015, abdi2020data (DOI-verified), chen2020 (SimCLR).
+- **Reviewer round 2 (2026-11-22)**:
+  - Seed-0 confound confirmed: TDI seed 0 is the best TDI init (DENTEX FDI 0.604 vs 0.571/0.572; Tufts 0.663 vs
+    0.626/0.624) and slab seed 0 the worst slab init (0.579 vs 0.586/0.592; Tufts 0.632 vs 0.633/0.646). The TDI−slab
+    fine-tuning gain (+0.011…+0.024), the DENTEX +0.011 at 96 images and the Tufts +0.013 at 384 are all ≤ this head
+    start → withdrawn from abstract/conclusion; Results now state the confound and draw no conclusion until the
+    multi-init runs are in. Metrics paragraph: 3-seed bootstrap underestimates seed variance, p uncorrected, ~0.01
+    effects read as "consistent with".
+  - Text: conclusion's "information no 2D annotation can" removed; thesis now "randomize the image formation; geometry
+    is not what transfers"; Sec. 2.3, abstract, contribution 1 (rotational simulator; real labels for teeth, canal,
+    mandible), Fig. 2 caption (framing crop uses real labels) aligned. SSL claim narrowed to "contrastive (SimCLR)
+    pretraining did not help". Tufts jaw-region measure dropped. Tables follow/retune/crop/sched → supplement.tex (S1–S4).
+  - Experiments prepared (`cluster/submit_review2.sh`, user approved): MODE=initfew (TDI + slab, init seeds 1–2, budgets
+    4/39/96/384, ft seeds 0–2, 48 jobs; DENTEX + Tufts eval), MODE=mtfew (mean teacher: realonly_v2 recipe + EMA 0.99
+    teacher, consistency weight 0.1 MSE on teeth+FDI probabilities, sigmoid ramp-up 40%, unlabelled DENTEX pool;
+    teacher validated/saved; `configs/train/realonly_mt.yaml`; 12 jobs), MODE=r2s (NeBLa-style: real images → sim by
+    cyclegan_v1 G_BA, segmented by the no-DR and DR zero-shot models; `--translate` in all three evaluators → eval_*_r2s).
+    Local smoke tests pass (MT training, regular training, r2s on DENTEX/Tufts/mandible with stand-in checkpoints).
+  - Decisions (user): code public with full history, no Claude co-author on commits; no CycleGAN extra seeds.

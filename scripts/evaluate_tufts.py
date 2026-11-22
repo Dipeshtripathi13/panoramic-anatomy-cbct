@@ -92,6 +92,8 @@ def main() -> None:
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--num-workers", type=int, default=4)
     ap.add_argument("--limit", type=int)
+    ap.add_argument("--translate", type=Path, help="CycleGAN checkpoint: translate real images to sim style (G_BA) "
+                    "before segmenting (NeBLa-style test-time baseline) → eval_<ckpt>_r2s")
     args = ap.parse_args()
 
     ck = torch.load(args.run / f"{args.ckpt}.pt", map_location="cpu", weights_only=False)
@@ -100,6 +102,9 @@ def main() -> None:
     model = build_model(len(channels), cfg.get("encoder", "resnet34"), pretrained=False)
     model.load_state_dict(ck["model"])
     model.to(dev).eval()
+    if args.translate:                          # real → sim translation at test time
+        from dentalpano.train.cyclegan import Translated, load_generator
+        model = Translated(load_generator(args.translate, dev, key="G_BA"), model).eval()
     ti, fdi_idx = channels.index("teeth"), [channels.index(c) for c in TOOTH_CHANNELS]
     jaw_idx = [channels.index(c) for c in ("teeth", "mandible", "maxilla")]
 
@@ -123,7 +128,7 @@ def main() -> None:
                              "dice_jaw_all_fg": dice(np.ones_like(jaw_gt), jaw_gt),
                              **tooth_level(p[k, fdi_idx], fdi_gt, p[k, ti])})
 
-    out = args.run / f"eval_tufts_{args.ckpt}"
+    out = args.run / f"eval_tufts_{args.ckpt}{'_r2s' if args.translate else ''}"
     out.mkdir(exist_ok=True)
     with open(out / "per_image.csv", "w", newline="") as fh:
         w = csv.DictWriter(fh, fieldnames=list(rows[0]))

@@ -97,6 +97,8 @@ def main() -> None:
     ap.add_argument("--limit", type=int, help="first N real test images only (debugging)")
     ap.add_argument("--batch-size", type=int, default=8)
     ap.add_argument("--num-workers", type=int, default=4)
+    ap.add_argument("--translate", type=Path, help="CycleGAN checkpoint: translate real images to sim style (G_BA) "
+                    "before segmenting (NeBLa-style test-time baseline) → eval_<ckpt>_r2s")
     args = ap.parse_args()
 
     ck = torch.load(args.run / f"{args.ckpt}.pt", map_location="cpu", weights_only=False)
@@ -106,7 +108,10 @@ def main() -> None:
     model = build_model(len(channels), cfg.get("encoder", "resnet34"), pretrained=False)
     model.load_state_dict(ck["model"])
     model.to(dev).eval()
-    out = args.run / f"eval_{args.ckpt}"
+    if args.translate:                          # real → sim translation at test time
+        from dentalpano.train.cyclegan import Translated, load_generator
+        model = Translated(load_generator(args.translate, dev, key="G_BA"), model).eval()
+    out = args.run / f"eval_{args.ckpt}{'_r2s' if args.translate else ''}"
     out.mkdir(exist_ok=True)
     git = __import__("subprocess").run(["git", "rev-parse", "HEAD"], capture_output=True, text=True,
                                        cwd=dio.REPO).stdout.strip()
@@ -149,7 +154,9 @@ def main() -> None:
 
     # --- synthetic: TF3 test volumes, nominal renders ---
     root = dio.REPO / "data" / "renders" / args.synth_set
-    if (root / "index.json").exists():
+    if args.translate:                          # real→sim baseline: real test sets only
+        pass
+    elif (root / "index.json").exists():
         test_cases = (None if args.synth_split == "all"
                       else json.loads((dio.REPO / "splits" / "toothfairy3.json").read_text())[args.synth_split])
         synth = SynthDataset([args.synth_set], test_cases, channels, size, train=False)

@@ -107,9 +107,21 @@ class DentexImages(Dataset):
         return _resize(img, self.size, "bilinear"), self.names[i]
 
 
-def load_generator(path, device=None) -> Generator:
+def load_generator(path, device=None, key: str = "G_AB") -> Generator:
+    """key G_AB = synthetic → real (training-time baseline), G_BA = real → synthetic (NeBLa-style test-time)."""
     ck = torch.load(path, map_location="cpu", weights_only=False)
     g = Generator(**ck.get("arch", {}))
-    g.load_state_dict(ck["G_AB"])
+    g.load_state_dict(ck[key])
     g.eval().requires_grad_(False)
     return g.to(device) if device is not None else g
+
+
+class Translated(nn.Module):
+    """A segmentation model applied after a frozen translator: model(G(x).clamp(0, 1))."""
+
+    def __init__(self, generator: nn.Module, model: nn.Module):
+        super().__init__()
+        self.generator, self.model = generator, model
+
+    def forward(self, x):
+        return self.model(self.generator(x).clamp(0, 1))

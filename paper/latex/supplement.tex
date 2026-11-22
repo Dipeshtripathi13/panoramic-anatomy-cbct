@@ -1,0 +1,112 @@
+\documentclass[12pt]{article}
+\usepackage[margin=2.5cm]{geometry}
+
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage{array}
+\usepackage{adjustbox}
+\usepackage{microtype}
+\emergencystretch=2em
+\usepackage[hidelinks]{hyperref}
+\usepackage{xcolor}
+
+\newcommand{\sr}{sim$\to$real}
+\newcommand{\Sr}{Sim$\to$real}
+\newcommand{\pmsd}[2]{#1\,$\pm$\,#2}
+\graphicspath{{figures/}}
+
+\renewcommand{\thetable}{S\arabic{table}}
+
+\begin{document}
+
+\begin{center}
+{\large\bfseries Supplementary material for ``Learning panoramic anatomy from CBCT: simulation and domain randomization
+for zero- and few-shot segmentation of dental panoramic radiographs''}\\[6pt]
+Dipesh Tripathi, University of South Dakota
+\end{center}
+
+Section and table references without the prefix S refer to the main text.
+
+\begin{table}[h]
+\centering\small
+\caption{Follow-up experiments on the randomization ranges (DENTEX test, three seeds, ablation schedule).}
+\label{tab:follow}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+Variant & Teeth Dice & FDI Dice & Numbering & $\Delta$ teeth [min, max] & $\Delta$ numb. \\
+\midrule
+Reference & \pmsd{0.734}{0.004} & \pmsd{0.569}{0.015} & \pmsd{0.911}{0.004} & -- & -- \\
+Metal off & \pmsd{0.767}{0.009} & \pmsd{0.592}{0.007} & \pmsd{0.895}{0.015} & +0.033 [+0.022, +0.047] & $-$0.015 \\
+Metal $\times$0.8--1.5 & \pmsd{0.758}{0.005} & \pmsd{0.584}{0.002} & \pmsd{0.901}{0.006} & +0.024 [+0.014, +0.031] & $-$0.009 \\
+Wider image ranges & \pmsd{0.766}{0.011} & \pmsd{0.601}{0.019} & \pmsd{0.914}{0.009} & +0.031 [+0.020, +0.042] & +0.003 \\
+Both & \pmsd{0.779}{0.009} & \pmsd{0.599}{0.007} & \pmsd{0.894}{0.012} & +0.044 [+0.036, +0.058] & $-$0.017 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{table}[h]
+\centering\small
+\caption{Full-schedule zero-shot models with the original and the retuned randomization ranges, mean $\pm$ sd over three
+seeds each (DENTEX test and synthetic test volumes).}
+\label{tab:retune}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+& \multicolumn{2}{c}{Original ranges} & \multicolumn{2}{c}{Retuned ranges} \\
+\midrule
+DENTEX teeth Dice & \multicolumn{2}{c}{\pmsd{0.755}{0.020}} & \multicolumn{2}{c}{\pmsd{0.773}{0.008}} \\
+DENTEX FDI Dice & \multicolumn{2}{c}{\pmsd{0.582}{0.019}} & \multicolumn{2}{c}{\pmsd{0.598}{0.013}} \\
+DENTEX detection & \multicolumn{2}{c}{\pmsd{0.871}{0.038}} & \multicolumn{2}{c}{\pmsd{0.914}{0.014}} \\
+DENTEX numbering & \multicolumn{2}{c}{\pmsd{0.900}{0.001}} & \multicolumn{2}{c}{\pmsd{0.895}{0.016}} \\
+Synthetic IAC Dice, left / right & \multicolumn{2}{c}{0.746 / 0.755} & \multicolumn{2}{c}{0.721 / 0.721} \\
+Synthetic pulp Dice & \multicolumn{2}{c}{0.669} & \multicolumn{2}{c}{0.655} \\
+Synthetic implant Dice & \multicolumn{2}{c}{0.687} & \multicolumn{2}{c}{0.573} \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{table}[h]
+\centering\small
+\caption{Zero-shot crop models on the CONTACT test set (matched resolution), three seeds each.}
+\label{tab:crop}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Crop model & Molar Dice & Canal Dice & Canal Dice, group 3 & Canal Dice per seed \\
+\midrule
+Original ranges & \pmsd{0.672}{0.058} & \pmsd{0.479}{0.039} & \pmsd{0.490}{0.036} & 0.436, 0.510, 0.492 \\
+Retuned ranges & \pmsd{0.662}{0.085} & \pmsd{0.397}{0.084} & \pmsd{0.399}{0.069} & 0.424, 0.465, 0.303 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\begin{table}[h]
+\centering\small
+\caption{Sensitivity of the \sr\ arm to its fine-tuning schedule (test set, mean over three seeds; columns give the
+fraction of the real training pool). The reported schedules were chosen without the test set
+(main text, Section~4).}
+\label{tab:sched}
+\setlength{\tabcolsep}{4pt}
+\begin{adjustbox}{max width=\linewidth}
+\begin{tabular}{@{}llcccccc@{}}
+\toprule
+Data, metric & \Sr\ schedule & 1\% & 5\% & 10\% & 25\% & 50\% & 100\% \\
+\midrule
+DENTEX, FDI Dice & lr $3\cdot10^{-4}$, 40 epochs (reported) & 0.702 & 0.720 & 0.736 & 0.749 & 0.762 & 0.774 \\
+ & lr $3\cdot10^{-4}$, 120 epochs & 0.699 & 0.715 & 0.730 & 0.746 & 0.760 & 0.775 \\
+\midrule
+CONTACT, contact AUC & lr $3\cdot10^{-4}$, 30 epochs & 0.582 & 0.601 & 0.621 & 0.627 & 0.649 & 0.672 \\
+ & lr $3\cdot10^{-4}$, 90 epochs & 0.582 & 0.603 & 0.622 & 0.633 & 0.655 & 0.668 \\
+ & lr $10^{-3}$, 90 epochs (reported) & 0.579 & 0.616 & 0.633 & 0.654 & 0.690 & 0.698 \\
+\bottomrule
+\end{tabular}
+\end{adjustbox}
+\end{table}
+
+\end{document}

@@ -13,4 +13,4 @@ for f in fig_simulator_DATA.png fig_dentex_overlays_DATA_paper.png fig_fewshot_d
          fig_cyclegan_samples_DATA_paper.png fig_contact_overlays_DATA_paper.png fig_fewshot_contact.pdf; do
   cp outputs/paper/figures/$f paper/latex/figures/
 done
-cd paper/latex && tectonic main.tex
+cd paper/latex && tectonic main.tex && tectonic supplement.tex

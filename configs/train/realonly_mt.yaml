@@ -1,0 +1,29 @@
+# Semi-supervised real-only baseline (reviewer round 2): the tuned real-only recipe (realonly_v2.yaml: ImageNet init,
+# lr 1e-3, 120 epochs, real val every 3rd epoch) plus a mean teacher on the 2,098 unlabelled DENTEX images
+# (splits/dentex.json "unlabelled", disjoint from the test duplicate groups). Standard settings, not tuned:
+# EMA 0.99, consistency weight 0.1 (MSE of probabilities), sigmoid ramp-up over the first 40% of steps.
+# Fraction/repeat/seed set by cluster/baselines.sbatch (MODE=mtfew).
+run_name: realonly_mt
+seed: 0
+channels: structures+teeth
+size: [256, 640]
+synth_train_sets: null
+synth_val_sets: null
+real_train_frac: 1.0
+real_repeat: 1
+real_val: true
+select_on: real
+encoder: resnet34
+pretrained: true
+init_from: null
+epochs: 120
+val_every: 3
+batch_size: 16
+lr: 0.001
+weight_decay: 0.0001
+dice_weight: 1.0
+num_workers: 8
+mean_teacher:
+  ema: 0.99
+  weight: 0.1
+  rampup: 0.4

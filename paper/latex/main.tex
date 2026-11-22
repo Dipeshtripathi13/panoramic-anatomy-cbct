@@ -36,16 +36,16 @@
 \begin{abstract}
 Panoramic radiographs are the most common dental imaging examination, but pixel-level annotation is costly, and a 2D
 label cannot show whether two overlapping structures touch in 3D. We ask how well segmentation models trained only on
-panoramics simulated from labelled cone-beam CT (CBCT) transfer to real panoramics. We built a physics-based simulator of
-rotational panoramic imaging, applied it to 532 ToothFairy3 volumes, and projected their labels into overlapping masks
+panoramics simulated from labelled cone-beam CT (CBCT) transfer to real panoramics. We built a simulator of rotational
+panoramic imaging, applied it to 532 ToothFairy3 volumes, and projected their labels into overlapping masks
 for teeth, pulp, canals, sinus and restorations, with domain randomization of acquisition and image formation. Trained
 on renders alone, a U-Net segments and numbers teeth on real panoramics from two sources (DENTEX: teeth Dice 0.755, 90\%
 of detected teeth correctly numbered; Tufts: 0.770 and 93\%) and segments the mandible (Dice 0.89; trivial baseline
 0.71); without randomization, transfer fails. Fine-tuned on four real images, it matches real-only training, with or
-without in-domain self-supervised pretraining, on about ten times as many labels. On DENTEX this advantage disappears at
-about 100 labelled images; on Tufts it persists with all 384. A paired per-factor ablation shows that image noise and
-processing govern transfer. A simpler curved-slab projection with the same randomization transfers equally well
-zero-shot, while the rotational model gives small, consistent gains in tooth identity after fine-tuning. Randomized
+without contrastive self-supervised pretraining, on about ten times as many labels; this advantage disappears at about
+100 labelled images. A paired per-factor ablation shows that randomizing image noise and processing governs transfer,
+and a simpler curved-slab projection with the same randomization transfers equally well zero-shot: what matters is
+randomizing the image formation, not modelling the rotational geometry. Randomized
 simulation outperforms CycleGAN translation, which altered the anatomy. Finally, a classifier trained only on
 third-molar--canal contact labels computed from CBCT learns a weak contact signal on real crops (AUC 0.60), below expert
 radiographic signs; with 44 or more real crops, real-only training is as good.
@@ -99,11 +99,11 @@ prediction on real images, and which parts of the simulation matter, has not bee
 
 This paper addresses that question. Our contributions are:
 \begin{enumerate}
-\item \textbf{A physics-based panoramic simulator over ToothFairy3.} It models the rotational narrow-beam acquisition,
-including the focal trough, blur outside it, ghosts and the spine shadow. It projects overlapping multi-label masks for
-32 teeth by FDI number, pulp, both IACs, incisive canals, the maxillary sinus, crowns, bridges and implants. Public real
-labels exist only for the teeth and the canal, so these two are validated on real images; the other structures are
-evaluated on held-out synthetic data.
+\item \textbf{A rotational panoramic simulator over ToothFairy3.} It models the narrow-beam acquisition, including the
+focal trough, blur outside it, ghosts and the spine shadow, and projects overlapping multi-label masks for 32 teeth by
+FDI number, pulp, both IACs, incisive canals, the maxillary sinus, the jaws, crowns, bridges and implants. Public real
+labels exist for the teeth, the canal and the mandible, so these are validated on real images; the other structures
+are evaluated on held-out synthetic data only.
 \item \textbf{Panoramic-specific domain randomization with a paired per-factor ablation.} Nine factor groups are
 switched off one at a time with all other random draws held fixed, over three seeds. Follow-up experiments retune the
 most influential ranges.
@@ -117,11 +117,11 @@ contact labels computed automatically from each CBCT and tested on real CONTACT 
 
 The main findings are as follows. First, a model trained on simulation alone segments and numbers teeth on real
 panoramics from two sources and segments the mandible. With a handful of real labels it matches real-only training that
-uses about ten times more. On the training source the advantage disappears once about 100 labelled images are
-available; on a second source it persists. Randomization is what makes this work: unrandomized simulation does not
-transfer. Second, image-level realism (noise and vendor processing) dominates transfer. A simpler curved-slab projection
-with the same randomization transfers equally well zero-shot, and the rotational geometry adds only small gains in tooth
-identity after fine-tuning. Third, randomized simulation preserves label correctness, whereas unpaired
+uses about ten times more, although the advantage disappears once about 100 labelled images are available.
+Randomization is what makes this work: unrandomized simulation does not transfer. Second, randomizing the image
+formation (noise and vendor processing) dominates transfer, and a simpler curved-slab projection with the same
+randomization transfers equally well zero-shot. Modelling the rotational geometry is therefore not what makes
+simulation transfer; the geometry factors only affect tooth identity, and by small amounts. Third, randomized simulation preserves label correctness, whereas unpaired
 translation does not. Fourth, a contact signal learned from CBCT geometry alone, without any real contact label, transfers weakly to real
 images; it is a useful starting point only when few real contact labels exist.
 
@@ -161,8 +161,8 @@ angles~\cite{dong2025}. Domain randomization itself originates in robotics~\cite
 showed that fully randomizing contrast and resolution yields brain-MRI segmentation that works on any
 contrast~\cite{billot2023}. Panoramic imaging differs from these settings because the image is not a single projection.
 A narrow beam rotates around the patient while the detector moves, so a curved layer is sharp and everything else is
-smeared. Most of what makes a panoramic look like a panoramic comes from this geometry. To our knowledge, the effect of
-randomizing it has not been measured.
+smeared. This geometry produces the characteristic blur, ghosts and spine shadow of a panoramic. To our knowledge,
+neither the effect of randomizing it nor whether modelling it matters for transfer has been measured.
 
 \subsection{Simulated panoramics from CBCT}
 Simulated panoramics have mostly served 3D reconstruction from a single panoramic. Oral-3D~\cite{song2021} and
@@ -216,7 +216,7 @@ crops may share patients. The test set is unaffected.
 
 Two further real datasets serve only as external tests; no model is trained, tuned or selected on them.
 \textbf{Tufts}~\cite{panetta2022} contains 1,000 panoramics from a different source than DENTEX, with tooth masks that
-follow the tooth contours, per-tooth polygons in Universal numbering and a maxillomandibular region mask. We map
+follow the tooth contours and per-tooth polygons in Universal numbering. We map
 Universal to FDI numbers and evaluate the 886 images that contain permanent teeth only. We excluded 32 edentulous
 images and 82 with primary teeth, for which the model has no channels. The \textbf{mandible set} of Abdi and
 Kasaei~\cite{abdi2015,abdi2020data} contains 116 panoramics in which two dentists each segmented the mandible. Both are
@@ -395,7 +395,7 @@ fine-tuning schedule, real-only per-tooth Dice was still rising at the last epoc
 separately (learning rate $10^{-3}$, 120 epochs, validation every third epoch), and report only this tuned baseline. To
 check that the comparison does not favour real-only by giving it three times the training, we also trained the \sr\ arm
 for 120 epochs. FDI Dice changed by at most 0.006 and numbering accuracy by at most 0.002 at any budget, and the selected
-checkpoints came early in both schedules (Table~\ref{tab:sched}). We therefore report the 40-epoch schedule. Every
+checkpoints came early in both schedules (Table~S4). We therefore report the 40-epoch schedule. Every
 DENTEX few-shot model is also tested, without any change, on the 886 Tufts images, which measures how each arm
 generalises to a second source and a different annotation style.
 
@@ -417,7 +417,7 @@ contact labels), with three seeds and selection on validation contact AUC. Both 
 $10^{-3}$, 90 epochs, validation every third epoch), so they differ only in initialisation. We first ran both with the
 shorter fine-tuning schedule (learning rate $3\cdot10^{-4}$, 30 epochs). That undertrained the real-only arm (canal Dice
 0.03 to 0.14 lower, contact AUC 0.05 lower with all crops). For \sr, the longer schedule mattered only together with the
-higher learning rate (Table~\ref{tab:sched}). On validation, the three \sr\ schedules were indistinguishable (contact AUC
+higher learning rate (Table~S4). On validation, the three \sr\ schedules were indistinguishable (contact AUC
 within 0.013 at every budget), so we fixed the schedule by matching the real-only arm rather than by test performance.
 
 \textbf{Metrics.} On DENTEX we report Dice of the teeth union and mean Dice over the FDI channels present in the ground
@@ -429,7 +429,10 @@ $\geq$\,300 pixels) when present. On CONTACT we report molar and canal Dice, and
 2 + 3), overall and for the hard comparison of group 1 vs.\ 3. Confidence intervals for single models are 95\% percentile bootstraps over test images (2,000 resamples).
 Comparisons between arms use a paired hierarchical bootstrap (10,000 draws): each draw resamples the training seeds of
 each arm and then the test images, shared by both arms so that the pairing by image is kept. We report the mean
-difference, its 95\% interval and a two-sided bootstrap $p$-value.
+difference, its 95\% interval and a two-sided bootstrap $p$-value. With three seeds per arm, resampling seeds gives few
+distinct combinations, so the bootstrap probably underestimates between-seed variance, and the $p$-values are not
+corrected for the number of comparisons. We therefore read differences of about 0.01 as consistent with an effect
+rather than as established, and base no conclusion on them alone.
 
 % =====================================================================================================================
 \section{Results}
@@ -481,7 +484,8 @@ Presence F1 & \pmsd{0.929}{0.013} & 0.943 \\
 \centering
 \includegraphics[width=\textwidth]{fig_dentex_overlays_DATA_paper.png}
 \caption{Zero-shot predictions of the simulation-only model on real DENTEX test panoramics~\cite{hamamci2023}. The model
-has never seen a real image or label. Predicted tooth outlines follow the tooth contours, while the ground-truth polygons
+was trained without any real image; real labels were used only to set the fixed framing crop
+(Section~\ref{sec:train}). Predicted tooth outlines follow the tooth contours, while the ground-truth polygons
 are straight-edged and include interproximal gaps. Canals and sinus are predicted but have no ground truth in DENTEX.}
 \label{fig:dentex}
 \end{figure}
@@ -492,8 +496,10 @@ With four labelled images, \sr\ reaches an FDI Dice of \pmsd{0.702}{0.006} and a
 \pmsd{0.933}{0.006}. The tuned real-only model reaches \pmsd{0.169}{0.042} and \pmsd{0.454}{0.073} on the same images.
 Real-only training needs about ten times more labels to catch up: with 39 images it reaches an FDI Dice of 0.696 and a
 numbering accuracy of 0.923, close to what \sr\ achieves with four. With 20 images \sr\ is still clearly ahead (FDI 0.720
-vs.\ 0.620, numbering 0.935 vs.\ 0.869). The paired bootstrap confirms the advantage on both measures up to 39 images
-($p \leq 0.003$) and on FDI Dice at 96 images (+0.011 [+0.002, +0.021], $p = 0.013$). From 192 images no difference is
+vs.\ 0.620, numbering 0.935 vs.\ 0.869). The paired bootstrap supports the advantage on both measures up to 39 images
+($p \leq 0.003$). At 96 images \sr\ is ahead on FDI Dice by 0.011 [+0.002, +0.021] ($p = 0.013$), but this is smaller
+than the lead of its seed-0 initialisation over the other two seeds (Section~\ref{sec:slab}), so it may reflect the
+starting model rather than simulation. From 192 images no difference is
 significant; with all 384, real-only is marginally ahead on FDI Dice (0.779 vs.\ 0.774, $p = 0.06$) and level on
 numbering (0.952 vs.\ 0.950). Simulation therefore
 replaces most real labels in the low-data regime but adds little once a moderately sized labelled set exists.
@@ -631,63 +637,24 @@ off. Bars show the mean, dots the three seeds; the noise bar extends beyond the 
 \end{figure}
 
 \textbf{Retuning the ranges.} The ablation suggested two changes, which we tested under the same protocol
-(Table~\ref{tab:follow}). Narrowing the metal range from $\times$1--3 to $\times$0.8--1.5 recovers most of the metal-off
+(Table~S1). Narrowing the metal range from $\times$1--3 to $\times$0.8--1.5 recovers most of the metal-off
 gain (teeth +0.024) with a smaller numbering cost. Widening the image-level ranges (photon count, read noise, detector
 blur, background subtraction, unsharp masking, gamma) improves teeth Dice by 0.031 and FDI Dice by 0.033 in every seed,
 with numbering unchanged. It is the only change that improves outline and per-tooth Dice at no cost to enumeration.
 On the validation images the three changes give +0.033, +0.041 and +0.053 teeth Dice, in the same order.
 
-\begin{table}[t]
-\centering\small
-\caption{Follow-up experiments on the randomization ranges (DENTEX test, three seeds, ablation schedule).}
-\label{tab:follow}
-\begin{adjustbox}{max width=\linewidth}
-\begin{tabular}{@{}lccccc@{}}
-\toprule
-Variant & Teeth Dice & FDI Dice & Numbering & $\Delta$ teeth [min, max] & $\Delta$ numb. \\
-\midrule
-Reference & \pmsd{0.734}{0.004} & \pmsd{0.569}{0.015} & \pmsd{0.911}{0.004} & -- & -- \\
-Metal off & \pmsd{0.767}{0.009} & \pmsd{0.592}{0.007} & \pmsd{0.895}{0.015} & +0.033 [+0.022, +0.047] & $-$0.015 \\
-Metal $\times$0.8--1.5 & \pmsd{0.758}{0.005} & \pmsd{0.584}{0.002} & \pmsd{0.901}{0.006} & +0.024 [+0.014, +0.031] & $-$0.009 \\
-Wider image ranges & \pmsd{0.766}{0.011} & \pmsd{0.601}{0.019} & \pmsd{0.914}{0.009} & +0.031 [+0.020, +0.042] & +0.003 \\
-Both & \pmsd{0.779}{0.009} & \pmsd{0.599}{0.007} & \pmsd{0.894}{0.012} & +0.044 [+0.036, +0.058] & $-$0.017 \\
-\bottomrule
-\end{tabular}
-\end{adjustbox}
-\end{table}
 
 We then retrained the full model with the narrower metal range and the wider image ranges, three seeds each, and
-compared it with three seeds of the original recipe (Table~\ref{tab:retune}). On real panoramics the retuned model is
+compared it with three seeds of the original recipe (Table~S2). On real panoramics the retuned model is
 better and more stable: teeth Dice \pmsd{0.773}{0.008} vs.\ \pmsd{0.755}{0.020}, and detection 0.914 vs.\ 0.871, with
 unchanged numbering. But it is worse on the structures that lack real labels. On synthetic test volumes the IAC falls from
 0.746 / 0.755 to 0.721 / 0.721 and implants from 0.687 to 0.573. The canal loss carries over to real images: a crop model
 trained with the retuned recipe reaches a CONTACT canal Dice of \pmsd{0.397}{0.084}, against \pmsd{0.479}{0.039} for the
-original, and it is lower in every seed pair (Table~\ref{tab:crop}). Stronger image-level randomization thus trades the
+original, and it is lower in every seed pair (Table~S3). Stronger image-level randomization thus trades the
 thin, low-contrast canal against the teeth. We keep the original recipe as our main model. The ablation's conclusions are
 drawn on teeth and should not be generalised to every structure. Because the retuned recipe was not adopted, no
 headline result depends on the test-set tuning.
 
-\begin{table}[t]
-\centering\small
-\caption{Full-schedule zero-shot models with the original and the retuned randomization ranges, mean $\pm$ sd over three
-seeds each (DENTEX test and synthetic test volumes).}
-\label{tab:retune}
-\begin{adjustbox}{max width=\linewidth}
-\begin{tabular}{@{}lcccc@{}}
-\toprule
-& \multicolumn{2}{c}{Original ranges} & \multicolumn{2}{c}{Retuned ranges} \\
-\midrule
-DENTEX teeth Dice & \multicolumn{2}{c}{\pmsd{0.755}{0.020}} & \multicolumn{2}{c}{\pmsd{0.773}{0.008}} \\
-DENTEX FDI Dice & \multicolumn{2}{c}{\pmsd{0.582}{0.019}} & \multicolumn{2}{c}{\pmsd{0.598}{0.013}} \\
-DENTEX detection & \multicolumn{2}{c}{\pmsd{0.871}{0.038}} & \multicolumn{2}{c}{\pmsd{0.914}{0.014}} \\
-DENTEX numbering & \multicolumn{2}{c}{\pmsd{0.900}{0.001}} & \multicolumn{2}{c}{\pmsd{0.895}{0.016}} \\
-Synthetic IAC Dice, left / right & \multicolumn{2}{c}{0.746 / 0.755} & \multicolumn{2}{c}{0.721 / 0.721} \\
-Synthetic pulp Dice & \multicolumn{2}{c}{0.669} & \multicolumn{2}{c}{0.655} \\
-Synthetic implant Dice & \multicolumn{2}{c}{0.687} & \multicolumn{2}{c}{0.573} \\
-\bottomrule
-\end{tabular}
-\end{adjustbox}
-\end{table}
 
 \subsection{Randomization versus no randomization and image translation}
 Without randomization, simulation does not transfer at all (Table~\ref{tab:sources}; all differences to the
@@ -739,32 +706,28 @@ change zero-shot transfer (Table~\ref{tab:external}). On DENTEX the two simulato
 mandible no difference is significant ($p \geq 0.14$). The slab models are also more consistent across seeds. What
 carries zero-shot transfer is therefore the randomization and the exact projected labels, not the rotational geometry.
 
-After fine-tuning the picture changes. Starting from the TDI model gives a higher FDI Dice than starting from the slab
-model at every DENTEX budget (+0.011 to +0.024, $p \leq 0.003$) and a higher numbering accuracy (+0.007 to +0.013,
-$p \leq 0.047$; Table~\ref{tab:fewdentex}). On Tufts the numbering advantage holds up to 39 images (+0.010 to +0.021,
-$p < 0.001$). The gains are small, but they agree with the ablation, where every geometry factor helped tooth identity
-rather than outline. A plausible reading is that the TDI renders contain the blur and ghost confusions between
-neighbouring teeth that real images contain, and a model pretrained on them is a better starting point for learning
-identity from real labels. The slab also removes the spine and far-side structures, so this comparison tests the
-projection model as a whole rather than any single effect.
+After fine-tuning, the model initialised from the TDI simulator has a higher FDI Dice than the one initialised from
+the slab simulator at every DENTEX budget (+0.011 to +0.024; Table~\ref{tab:fewdentex}). We do not interpret this
+difference. Both arms are fine-tuned from their seed-0 model, and seed 0 is the best of the three TDI models (DENTEX FDI
+Dice 0.604 against 0.571 and 0.572) but the worst of the three slab models (0.579 against 0.586 and 0.592). The
+fine-tuning difference is no larger than this difference between the starting points, and the bootstrap, which
+resamples fine-tuning seeds but not initialisations, cannot separate the two. The slab also removes the spine and
+far-side structures, so the comparison tests the projection model as a whole rather than any single effect.
 
 \subsection{External tests: Tufts and the mandible}
 \textbf{Tufts.} The zero-shot model transfers to a second source as well as to DENTEX (Table~\ref{tab:external}):
 teeth Dice \pmsd{0.770}{0.022}, FDI Dice \pmsd{0.638}{0.022}, detection \pmsd{0.855}{0.028} and numbering accuracy
-\pmsd{0.930}{0.005} over three seeds (seed 0: FDI Dice 0.663 [0.647, 0.678], numbering 0.934 [0.926, 0.941]). The
+\pmsd{0.930}{0.005} over three seeds (seed 0, the initialisation of all fine-tuning: FDI Dice 0.663 [0.647, 0.678], numbering 0.934 [0.926, 0.941]). The
 baselines fail here too: without randomization FDI Dice is 0.102, after CycleGAN translation 0.119. Tufts tooth masks
 follow the tooth contours, unlike DENTEX polygons. Accordingly, models fine-tuned on DENTEX labels do not segment the
 Tufts outline better than the zero-shot model (teeth Dice 0.76--0.79 for every arm from 20 images on;
 Fig.~\ref{fig:fewdentex}),
 which supports our reading that much of the DENTEX teeth-Dice gap reflects annotation style.
 
-Tested on Tufts, the DENTEX-trained few-shot models differ more than on DENTEX itself. \Sr\ is ahead of real-only
-training on FDI Dice at every budget, including all 384 images (+0.013 [+0.004, +0.021], $p = 0.003$), and on
-numbering up to 192 images ($p \leq 0.031$). It is also ahead of the SSL arm on FDI Dice at every budget
-($p \leq 0.008$). On DENTEX the advantage disappears at about 100 images; on a second source it persists, so the
-simulated prior makes models more robust to a change of source even when labels are plentiful. The jaw-region
-measure, the union of predicted teeth, mandible and maxilla against Tufts' maxillomandibular mask, is barely above its
-trivial all-foreground floor (0.839 vs.\ 0.785) and is not informative.
+Tested on Tufts, the DENTEX-trained few-shot models rank as on DENTEX. \Sr\ is far ahead of real-only training at
+small budgets (FDI Dice 0.677 vs.\ 0.127 with four images, 0.707 vs.\ 0.629 with 39). With 96 or more images it
+remains ahead by 0.013 to 0.028 FDI Dice, but this is no more than the lead of its seed-0 initialisation over the other
+two seeds on Tufts (0.663 against 0.626 and 0.624), so we do not claim an advantage at large budgets.
 
 \textbf{Mandible.} The mandible has no real label anywhere in our training. On the 116 panoramics of Abdi and
 Kasaei~\cite{abdi2015}, the zero-shot model segments it with a Dice of \pmsd{0.892}{0.005} over three seeds (seed 0:
@@ -801,25 +764,10 @@ CycleGAN-translated & 0.562 & 0.125 & 0.104 & 0.514 & 0.119 & 0.185 & 0.815 \\
 \textbf{Segmentation.} The zero-shot crop model segments the third molar on the 444 CONTACT test crops with a Dice of
 0.611 and the canal with 0.436 (seed 0, which initialises the contact experiments). Crop models vary considerably with
 the training seed. Over three seeds, molar Dice is \pmsd{0.672}{0.058} and canal Dice \pmsd{0.479}{0.039}, and seed 0
-is the weakest (Table~\ref{tab:crop}). Molar outlines are often tight, with per-image Dice of 0.85--0.95
+is the weakest (Table~S3). Molar outlines are often tight, with per-image Dice of 0.85--0.95
 (Fig.~\ref{fig:contact}). Failures mostly come from segmenting the neighbouring second molar. CONTACT's canal masks are
 drawn as wide bands between the cortical lines, while our projected label is the canal lumen, which caps canal Dice.
 
-\begin{table}[t]
-\centering\small
-\caption{Zero-shot crop models on the CONTACT test set (matched resolution), three seeds each.}
-\label{tab:crop}
-\begin{adjustbox}{max width=\linewidth}
-\begin{tabular}{@{}lcccc@{}}
-\toprule
-Crop model & Molar Dice & Canal Dice & Canal Dice, group 3 & Canal Dice per seed \\
-\midrule
-Original ranges & \pmsd{0.672}{0.058} & \pmsd{0.479}{0.039} & \pmsd{0.490}{0.036} & 0.436, 0.510, 0.492 \\
-Retuned ranges & \pmsd{0.662}{0.085} & \pmsd{0.397}{0.084} & \pmsd{0.399}{0.069} & 0.424, 0.465, 0.303 \\
-\bottomrule
-\end{tabular}
-\end{adjustbox}
-\end{table}
 
 \begin{figure}[t]
 \centering
@@ -931,28 +879,6 @@ Labelled crops & Arm & Contact AUC & Group 1 vs.\ 3 AUC & Canal Dice \\
 \end{adjustbox}
 \end{table}
 
-\begin{table}[t]
-\centering\small
-\caption{Sensitivity of the \sr\ arm to its fine-tuning schedule (test set, mean over three seeds; columns give the
-fraction of the real training pool). The reported schedules were chosen without the test set
-(Section~\ref{sec:setup}).}
-\label{tab:sched}
-\setlength{\tabcolsep}{4pt}
-\begin{adjustbox}{max width=\linewidth}
-\begin{tabular}{@{}llcccccc@{}}
-\toprule
-Data, metric & \Sr\ schedule & 1\% & 5\% & 10\% & 25\% & 50\% & 100\% \\
-\midrule
-DENTEX, FDI Dice & lr $3\cdot10^{-4}$, 40 epochs (reported) & 0.702 & 0.720 & 0.736 & 0.749 & 0.762 & 0.774 \\
- & lr $3\cdot10^{-4}$, 120 epochs & 0.699 & 0.715 & 0.730 & 0.746 & 0.760 & 0.775 \\
-\midrule
-CONTACT, contact AUC & lr $3\cdot10^{-4}$, 30 epochs & 0.582 & 0.601 & 0.621 & 0.627 & 0.649 & 0.672 \\
- & lr $3\cdot10^{-4}$, 90 epochs & 0.582 & 0.603 & 0.622 & 0.633 & 0.655 & 0.668 \\
- & lr $10^{-3}$, 90 epochs (reported) & 0.579 & 0.616 & 0.633 & 0.654 & 0.690 & 0.698 \\
-\bottomrule
-\end{tabular}
-\end{adjustbox}
-\end{table}
 
 % =====================================================================================================================
 \section{Discussion}
@@ -963,11 +889,10 @@ reaches only with about 40 or more labelled images. Two features of the simulate
 every render has a complete, exact FDI label for every tooth in the volume, including teeth that are hard to see because
 they overlap or are blurred. Second, the projection preserves the 3D order of the arch. Real-only training with few
 labels learns the outline of the dentition but not which tooth is which, and that is the information simulation
-supplies. Unlabelled real images do not supply it: in-domain self-supervised pretraining left per-tooth Dice
-unchanged. On the training source the benefit is limited to the low-data regime: once about 100 labelled images are
-available, a well-tuned real-only model does as well. On a second source (Tufts) the simulation-pretrained models stay
-ahead on per-tooth Dice even with all 384 labelled images, so the prior also buys some robustness to a change of
-source. For teeth, which already have public labels, simulation is therefore mainly a way to need far fewer of them. Its larger promise is for structures without any public labels, which our evaluation can only partly
+supplies. Contrastive pretraining on unlabelled real images did not supply it: SimCLR initialisation left per-tooth
+Dice unchanged. We tested a single self-supervised method, designed for image-level rather than dense tasks, so this
+does not show that unlabelled images cannot help. The benefit of simulation is limited to the low-data regime: once
+about 100 labelled images are available, a well-tuned real-only model does as well. For teeth, which already have public labels, simulation is therefore mainly a way to need far fewer of them. Its larger promise is for structures without any public labels, which our evaluation can only partly
 test.
 
 \textbf{What makes a panoramic simulator work.} The ablation suggests a division of labour. The image-level factors
@@ -980,10 +905,10 @@ outline. These per-factor effects are small (a few Dice points), and we needed t
 them from noise. Unpaired ablations with a single seed would have been misleading here.
 
 The curved-slab comparison makes the same point from the other side. A simulator without slit blur, oblique beams,
-ghosts or spine shadow, but with the same randomization, transfers as well zero-shot. For zero-shot transfer, a careful
-model of the panoramic acquisition is therefore not required; randomizing the image formation is. The rotational model
-pays off only after fine-tuning, as a small but consistent gain in tooth identity at every label budget. Whether this
-gain justifies the extra rendering cost depends on the application.
+ghosts or spine shadow, but with the same randomization, transfers as well zero-shot on three real test sets. For
+transfer, a careful model of the panoramic acquisition is therefore not required; randomizing the image formation is.
+The useful finding for others building such simulators is that effort is better spent on the image-formation ranges
+than on the beam geometry.
 
 \textbf{Teeth are not the whole story.} Retuning the ranges for teeth hurt the canal, on synthetic and real images alike.
 Different structures want different randomization: strong noise and processing wash out a thin, low-contrast canal that
@@ -1031,18 +956,21 @@ coarser than the pixel size of a real panoramic (about 0.1\,mm).
 % =====================================================================================================================
 \section{Conclusion}
 
-A panoramic simulator over labelled CBCT, with randomization of the panoramic geometry and image formation, is enough
-to train a model that segments and numbers teeth on real panoramics from two sources, and segments the mandible, without
-any real labels. With a handful of real images, it matches real-only training on about ten times as many labels; on the
-training source the advantage disappears once about 100 labelled images are available, but on a second source it
-persists. Without randomization, simulation does not transfer, and a simpler curved-slab projection with the same
-randomization transfers equally well zero-shot; the rotational model adds a small gain in tooth identity after
-fine-tuning. The paired ablation shows
-which parts of the simulation matter, and that the answer differs between structures. Simulated labels also carry
-information that no 2D annotation can: a contact head trained on 3D geometry alone learns a weak, above-chance signal
-for true third-molar--canal contact without any real contact label, although a few dozen real contact labels match it.
+A panoramic simulator over labelled CBCT, with randomization of the image formation, is enough to train a model that
+segments and numbers teeth on real panoramics from two sources, and segments the mandible, without any real image. With
+a handful of real images, it matches real-only training on about ten times as many labels, although the advantage
+disappears once about 100 labelled images are available. Without randomization, simulation does not transfer, while a
+simpler curved-slab projection with the same randomization transfers as well as the rotational model: randomizing the
+image formation matters more than modelling the acquisition geometry. The paired ablation shows which parts of the
+simulation matter, and that the answer differs between structures. Finally, a contact head trained on contact labels
+computed from CBCT learns a weak, above-chance signal for true third-molar--canal contact without any real contact
+label. It is weaker than ground-truth 2D overlap or expert signs, and a few dozen real contact labels match it.
 
 % =====================================================================================================================
+\section*{Supplementary material}
+Supplementary Tables S1--S4 (follow-up experiments on the randomization ranges, the retuned full model, crop-model seeds
+and the fine-tuning schedule check) are provided in the supplementary file.
+
 \section*{CRediT authorship contribution statement}
 \textbf{Dipesh Tripathi:} Conceptualization, Methodology, Software, Validation, Formal analysis, Investigation, Data
 curation, Writing -- original draft, Writing -- review \& editing, Visualization.
