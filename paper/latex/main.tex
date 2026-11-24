@@ -112,8 +112,9 @@ test sets (Tufts and a mandible set), and few-shot fine-tuning against real-only
 with and without the unlabelled real images (contrastive pretraining or a mean teacher). Baselines are a
 no-randomization model, a curved-slab simulator with the same randomization, and CycleGAN translation in both
 directions, as in NeBLa~\cite{park2024}.
-\item \textbf{A 3D-relation head.} It predicts true third-molar--IAC contact from the 2D image alone, trained with
-contact labels computed automatically from each CBCT and tested on real CONTACT crops with CBCT-confirmed labels.
+\item \textbf{A preliminary 3D-relation head.} It predicts true third-molar--IAC contact from the 2D image alone,
+trained with contact labels computed automatically from each CBCT and tested on real CONTACT crops with CBCT-confirmed
+labels. We report it as a first, preliminary result: the signal is weak and starts from a single crop model.
 \end{enumerate}
 
 The main findings are as follows. First, a model trained on simulation alone segments and numbers teeth on real
@@ -866,8 +867,10 @@ Real$\to$sim, no randomization & \pmsd{0.411}{0.068} & \pmsd{0.035}{0.019} & \pm
 \end{adjustbox}
 \end{table}
 
-\subsection{Third molar, canal and contact on real crops}
+\subsection{Third molar, canal and contact on real crops (preliminary)}
 \label{sec:contact}
+These experiments start from a single crop model, the weakest of three, and the contact signal is weak; we report them
+as a preliminary test of whether 3D relations computed from CBCT can be learned from the panoramic image.
 
 \textbf{Segmentation.} The zero-shot crop model segments the third molar on the 444 CONTACT test crops with a Dice of
 0.611 and the canal with 0.436 (seed 0, which initialises the contact experiments). Crop models vary considerably with
