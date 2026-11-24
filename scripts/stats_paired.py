@@ -2,7 +2,9 @@
 
 Each comparison is arm A − arm B on the same test images. One bootstrap draw resamples the training seeds of each arm
 (with replacement, independently) and then the test images (with replacement, shared by both arms, so the pairing by
-image is kept); the statistic is recomputed on the resampled set. Reported: mean difference, 95% percentile interval,
+image is kept); the statistic is recomputed on the resampled set. Comparisons whose arms were fine-tuned from several
+zero-shot initialisations (sections at the end) add a level: initialisations are resampled first, then the fine-tuning
+seeds within each drawn initialisation, then the images; the per-initialisation differences are also listed. Reported: mean difference, 95% percentile interval,
 and the two-sided bootstrap p-value (2 × the smaller tail fraction around zero). 10,000 draws, seed 0.
 
 Usage: python scripts/stats_paired.py
@@ -90,6 +92,36 @@ def compare(a: list[pd.DataFrame], b: list[pd.DataFrame], stat, rng) -> tuple[fl
     return point, lo, hi, p
 
 
+def compare_init(a: list[list[dict]], b: list[list[dict]], stat, rng) -> tuple[float, float, float, float]:
+    """As compare(), with each arm given as groups of seeds sharing one initialisation (init → seeds → images)."""
+    flat = [x for g in a + b for x in g]
+    assert all((x["_index"] == flat[0]["_index"]).all() for x in flat), "arms must share the same test images"
+    n = len(flat[0]["_index"])
+    full = np.arange(n)
+    cache = {}
+
+    def arm(groups, idx, draw):
+        vals = []
+        for gi in (rng.integers(0, len(groups), len(groups)) if draw else range(len(groups))):
+            g = groups[gi]
+            for si in (rng.integers(0, len(g), len(g)) if draw else range(len(g))):
+                vals.append(stat(g[si], idx) if draw else cache.setdefault(id(g[si]), stat(g[si], full)))
+        return np.mean(vals)
+
+    point = arm(a, full, False) - arm(b, full, False)
+    diffs = np.array([arm(a, idx, True) - arm(b, idx, True) for idx in (rng.integers(0, n, n) for _ in range(N_BOOT))])
+    lo, hi = np.percentile(diffs, [2.5, 97.5])
+    p = min(1.0, 2 * min((diffs <= 0).mean(), (diffs >= 0).mean()))
+    return point, lo, hi, p
+
+
+def per_init(a: list[list[dict]], b: list[list[dict]], stat) -> str:
+    """Point difference of each initialisation of arm a against arm b (all of b's groups pooled)."""
+    full = np.arange(len(a[0][0]["_index"]))
+    mb = np.mean([stat(x, full) for g in b for x in g])
+    return " / ".join(f"{np.mean([stat(x, full) for x in g]) - mb:+.3f}" for g in a)
+
+
 def fmt(r) -> str:
     point, lo, hi, p = r
     return f"{point:+.3f} [{lo:+.3f}, {hi:+.3f}], p {'< 0.001' if p < 1e-3 else f'= {p:.3f}'}"
@@ -150,6 +182,29 @@ def main() -> None:
         k = max(1, int(np.ceil(float(f) * 878)))
         lines.append(f"| {k} | {fmt(compare(a, b, auc, rng))} | "
                      f"{fmt(compare(a, b, lambda d, i: auc(d, i, g13=True), rng))} | {fmt(compare(a, b, canal, rng))} |")
+
+    # Reviewer round 2: initialisation level (zero-shot seeds 0–2 as fine-tuning starts) and mean teacher, at the four
+    # budgets these were run for. Appended after the sections above so their random streams stay unchanged.
+    FR4 = ["0.01", "0.10", "0.25", "1.00"]
+    inits = {"sim2real": ["fewshot_sim2real", "fewshot_sim2real_i1", "fewshot_sim2real_i2"],
+             "slab": ["fewshot_slab", "fewshot_slab_i1", "fewshot_slab_i2"]}
+
+    def init_table(title, loader, arm_a, arm_b):
+        nonlocal lines
+        lines += ["", f"## {title}", "| Images | FDI Dice | per init (FDI) | Numbering |", "|---|---|---|---|"]
+        for f in FR4:
+            ga = [loader([f"{p}_f{f}_s{s}" for s in range(3)]) for p in inits.get(arm_a, [arm_a])]
+            gb = [loader([f"{p}_f{f}_s{s}" for s in range(3)]) for p in inits.get(arm_b, [arm_b])]
+            k = max(1, int(np.ceil(float(f) * 384)))
+            lines.append(f"| {k} | {fmt(compare_init(ga, gb, fdi, rng))} | {per_init(ga, gb, fdi)} | "
+                         f"{fmt(compare_init(ga, gb, numbering, rng))} |")
+
+    for lab, loader in [("DENTEX", load_dentex), ("Tufts", load_tufts)]:
+        init_table(f"{lab}, 3 inits × 3 seeds: sim→real TDI − sim→real slab", loader, "sim2real", "slab")
+        init_table(f"{lab}, 3 inits × 3 seeds: sim→real − real-only", loader, "sim2real", "realonly_v2")
+        init_table(f"{lab}, 3 inits × 3 seeds: sim→real − SSL real-only", loader, "sim2real", "ssl_realonly")
+        init_table(f"{lab}, 3 inits × 3 seeds: sim→real − mean teacher", loader, "sim2real", "realonly_mt")
+        init_table(f"{lab}: mean teacher − real-only", loader, "realonly_mt", "realonly_v2")
 
     OUT.write_text("\n".join(lines) + "\n")
     print("\n".join(lines))

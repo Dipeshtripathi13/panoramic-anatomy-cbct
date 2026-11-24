@@ -25,6 +25,7 @@
 #   MODE=mandcv          sbatch --array=0-11 cluster/baselines.sbatch  supervised mandible reference: 5-fold CV on the
 #                        Abdi set; task = arm (imagenet | TDI zero-shot seed s) × budget (all | 5 images) × seed s,
 #                        5 folds per task (~15 min each) → runs/mandcv_<arm>_n<budget>_s<s>_f<fold>
+#   MODE=exteval RUNS="a b" sbatch --array=0 cluster/baselines.sbatch  Tufts + mandible test of trained runs
 #   MODE=tufts           sbatch --array=0-5 cluster/baselines.sbatch   Tufts external test: task 0 zero-shot models,
 #                        tasks 1–5 few-shot arms (realonly_v2, fewshot_sim2real, ssl_realonly, fewshot_slab, fewshot_nominal)
 #SBATCH --job-name=dental-base
@@ -80,6 +81,17 @@ case "$MODE" in
             if [ $((i / 2)) -eq 0 ]; then run="seg_cyclegan_s$SEED"; extra=(image_factors='[]')
             else run="seg_cyclegan_dr_s$SEED"; extra=(); fi
             args=(--config configs/train/seg_v1.yaml --set synth_translate=$G seed=$SEED ${extra[@]+"${extra[@]}"}) ;;
+  mandcv)   arms=(imagenet tdi); budgets=(0 5); arm=${arms[$((i / 6))]}; b=${budgets[$(( (i / 3) % 2 ))]}; s=$((i % 3))
+            if [ "$arm" = tdi ]; then zs=seg_v1_dr_full; [ $s -gt 0 ] && zs="seg_v1_dr_full_s$s"
+              init="$PROJ/runs/$zs/best.pt"; [ -f "$init" ]; else init=imagenet; fi
+            for f in 0 1 2 3 4; do
+              python scripts/train_mandible_cv.py --fold $f --init "$init" --n-train $b --seed $s \
+                --out "$PROJ/runs/mandcv_${arm}_n${b}_s${s}_f${f}"
+            done; exit 0 ;;
+  exteval)  for r in $RUNS; do   # Tufts + mandible test of already trained runs, e.g. RUNS="seg_cyclegan_dr"
+              python scripts/evaluate_tufts.py --run "$PROJ/runs/$r" --num-workers $((SLURM_CPUS_PER_TASK - 2))
+              python scripts/evaluate_mandible.py --run "$PROJ/runs/$r" --overlays 0
+            done; exit 0 ;;
   ssl)      python scripts/pretrain_ssl.py --run "$PROJ/runs/ssl_simclr"; exit 0 ;;
   sslfew)   init="$PROJ/runs/ssl_simclr/encoder.pt"; [ -f "$init" ]; run="ssl_realonly_f${frac}_s${SEED}"
             args=(--config configs/train/realonly_v2.yaml --set real_train_frac=$frac real_repeat=$rep init_from=$init seed=$SEED) ;;

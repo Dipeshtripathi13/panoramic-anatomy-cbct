@@ -57,10 +57,19 @@ def stats(vals) -> tuple[float, float]:
 # (real-only / randomized sim / unrandomized sim), line style = variant within it.
 FEW_ARMS = [("realonly_v2", C_BASE, "-", "Real-only, ImageNet init"),
             ("ssl_realonly", C_BASE, "--", "Real-only, in-domain SimCLR init"),
+            ("realonly_mt", C_BASE, "-.", "Real-only, mean teacher"),
             ("fewshot_nominal", C_3, "-", "Sim→real, no randomization"),
             ("fewshot_slab", C_OURS, "--", "Sim→real, randomized curved slab"),
             ("fewshot_sim2real", C_OURS, "-", "Sim→real, randomized TDI (ours)")]
 ZS_DR = ("seg_v1_dr_full", "seg_v1_dr_full_s1", "seg_v1_dr_full_s2")
+CYC = ["seg_cyclegan", "seg_cyclegan_s1", "seg_cyclegan_s2"]            # CycleGAN translator seeds 0–2
+CYC_DR = ["seg_cyclegan_dr", "seg_cyclegan_dr_s1", "seg_cyclegan_dr_s2"]
+# real→sim: each zero-shot model on real images translated by each of the three generators (eval dir suffix)
+R2S = lambda runs: [(r, f"_r2s{t}") for r in runs for t in ("", "_g1", "_g2")]
+
+
+def _run_suffix(r):
+    return r if isinstance(r, tuple) else (r, "")
 
 
 def dentex_fewshot(tables: list[str]) -> None:
@@ -77,9 +86,11 @@ def dentex_fewshot(tables: list[str]) -> None:
                for arm, *_ in FEW_ARMS for f in FRACS}
         for ax, (key, sub), title in zip(axes[row], metrics, titles):
             for arm, col, ls, lab in FEW_ARMS:
-                m = np.array([stats([j[key][sub] for j in res[arm, f]]) for f in FRACS])
-                ax.plot(n_img, m[:, 0], color=col, ls=ls, lw=1.8, marker="o", ms=3.5, label=lab)
-                ax.fill_between(n_img, m[:, 0] - m[:, 1], m[:, 0] + m[:, 1], color=col, alpha=0.12, lw=0)
+                ok = [i for i, f in enumerate(FRACS) if res[arm, f]]   # the mean teacher was run at four budgets
+                x = [n_img[i] for i in ok]
+                m = np.array([stats([j[key][sub] for j in res[arm, FRACS[i]]]) for i in ok])
+                ax.plot(x, m[:, 0], color=col, ls=ls, lw=1.8, marker="o", ms=3.5, label=lab)
+                ax.fill_between(x, m[:, 0] - m[:, 1], m[:, 0] + m[:, 1], color=col, alpha=0.12, lw=0)
             ax.axhline(np.mean([j[key][sub] for j in zs]), color=INK2, lw=1.1, ls=":",
                        label="Zero-shot, randomized TDI (0 labels)")
             ax.set_xscale("log")
@@ -91,20 +102,21 @@ def dentex_fewshot(tables: list[str]) -> None:
                 ax.set_title(title, color=INK, fontsize=8.5)
         axes[row, 0].set_ylabel(test)
 
-        rows = ["| Labelled images | " + " | ".join(f"{t} (RO / SSL / NoDR / slab / DR)" for t in titles) + " |",
+        rows = ["| Labelled images | " + " | ".join(f"{t} (RO / SSL / MT / NoDR / slab / DR)" for t in titles) + " |",
                 "|---|" + "---|" * len(metrics)]
         for f, n in zip(FRACS, n_img):
             cells = []
             for k, s, in metrics:
-                v = [stats([j[k][s] for j in res[arm, f]]) for arm, *_ in FEW_ARMS]
-                top = int(np.argmax([m for m, _ in v]))
-                cells.append(" / ".join((f"**{m:.3f}±{sd:.3f}**" if i == top else f"{m:.3f}±{sd:.3f}")
+                v = [stats([j[k][s] for j in res[arm, f]]) if res[arm, f] else (np.nan, np.nan)
+                     for arm, *_ in FEW_ARMS]
+                top = int(np.nanargmax([m for m, _ in v]))
+                cells.append(" / ".join("--" if m != m else (f"**{m:.3f}±{sd:.3f}**" if i == top else f"{m:.3f}±{sd:.3f}")
                                         for i, (m, sd) in enumerate(v)))
             rows.append(f"| {n} ({float(f):.0%}) | " + " | ".join(cells) + " |")
         tables += [f"### Table A{row + 1} — few-shot on DENTEX labels, tested on {test} (mean ± sd over 3 seeds)",
                    *rows, ""]
     h, l = axes[0, 0].get_legend_handles_labels()
-    fig.legend(h, l, loc="upper center", ncol=3, bbox_to_anchor=(0.5, 1.08))
+    fig.legend(h, l, loc="upper center", ncol=4, bbox_to_anchor=(0.5, 1.08))
     fig.tight_layout()
     save(fig, "fig_fewshot_dentex")
 
@@ -112,7 +124,10 @@ def dentex_fewshot(tables: list[str]) -> None:
 def external(tables: list[str]) -> None:
     """Zero-shot on the two external test sets (Tufts, Abdi mandible), plus DENTEX, by training-image source."""
     arms = [("TDI, randomized (ours)", ZS_DR), ("Curved slab, randomized", [f"seg_slab_s{s}" for s in SEEDS]),
-            ("TDI, no randomization", [f"seg_nominal_s{s}" for s in SEEDS]), ("CycleGAN-translated", ["seg_cyclegan"])]
+            ("TDI, no randomization", [f"seg_nominal_s{s}" for s in SEEDS]),
+            ("CycleGAN-translated", CYC), ("Randomization, then CycleGAN", CYC_DR),
+            ("Real→sim, randomized TDI model", R2S(ZS_DR)), ("Real→sim, no-randomization model",
+                                                          R2S([f"seg_nominal_s{s}" for s in SEEDS]))]
     cols = [("eval_best", "real_dice_teeth", "mean"), ("eval_best", "real_dice_fdi_mean", "mean"),
             ("eval_best", "real_tooth_numbering_acc", "value"),
             ("eval_tufts_best", "dice_teeth", "mean"), ("eval_tufts_best", "dice_fdi_mean", "mean"),
@@ -123,11 +138,12 @@ def external(tables: list[str]) -> None:
     for lab, rs in arms:
         cells = []
         for ev, k, sub in cols:
-            js = [jload(RUNS / r / ev / "metrics.json") for r in rs]
-            if not all(js):
-                return
+            js = [j for r, suf in map(_run_suffix, rs) if (j := jload(RUNS / r / (ev + suf) / "metrics.json"))]
+            if not js:
+                cells.append("--")
+                continue
             m, sd = stats([j[k][sub] for j in js])
-            cells.append(f"{m:.3f}±{sd:.3f}" if len(js) > 1 else f"{m:.3f}")
+            cells.append((f"{m:.3f}±{sd:.3f}" if len(js) > 1 else f"{m:.3f}") + ("" if len(js) == len(rs) else f" (n={len(js)})"))
         rows.append(f"| {lab} | {len(rs)} | " + " | ".join(cells) + " |")
     t = jload(RUNS / ZS_DR[0] / "eval_tufts_best" / "metrics.json")
     md = jload(RUNS / ZS_DR[0] / "eval_mandible_best" / "metrics.json")
@@ -137,10 +153,10 @@ def external(tables: list[str]) -> None:
 
 
 def zero_shot_sources(tables: list[str]) -> None:
-    """Zero-shot by training-image source: no randomization (3 seeds), randomized (3 seeds), CycleGAN (1 run)."""
+    """Zero-shot by training-image source: no randomization, randomized, CycleGAN (3 seeds each)."""
     arms = [("No randomization (nominal renders)", [f"seg_nominal_s{s}" for s in SEEDS]),
             ("Physics-based randomization (ours)", ["seg_v1_dr_full", "seg_v1_dr_full_s1", "seg_v1_dr_full_s2"]),
-            ("CycleGAN-translated renders", ["seg_cyclegan"]), ("Randomization, then CycleGAN", ["seg_cyclegan_dr"])]
+            ("CycleGAN-translated renders", CYC), ("Randomization, then CycleGAN", CYC_DR)]
     keys = [("real_dice_teeth", "mean"), ("real_dice_fdi_mean", "mean"), ("real_tooth_detection_rate", "value"),
             ("real_tooth_numbering_acc", "value")]
     rows = ["| Training images | runs | Teeth Dice | FDI Dice | Detection | Numbering |", "|---|---|---|---|---|---|"]

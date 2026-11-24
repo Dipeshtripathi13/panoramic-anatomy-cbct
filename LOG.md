@@ -603,3 +603,17 @@
     incisive-canal masks. Maxillary sinus: Park et al., arXiv 2604.20213 (626 expert-labelled panoramics, consensus of
     an OMF radiologist and a dentist) — "available on request to the corresponding author" (sj.lee@jbnu.ac.kr). Request
     drafted for the user to send. PanDent (arXiv 2607.27378, 9,554 PRs) not yet released; structures unspecified.
+- **Reviewer round 2 results (2026-11-24)** — initfew (48), mtfew (12), r2s (3 translators), cycgan s1/s2, cycseg (4) back.
+  - **mandcv did not run**: `MODE=mandcv` was documented in baselines.sbatch but its case branch was never written, so
+    all 12 tasks exited "unknown MODE". Branch added, plus `MODE=exteval` (Tufts + mandible test of `$RUNS`) for
+    seg_cyclegan_dr, which had no Tufts/mandible eval. Resubmit with `cluster/submit_review2c.sh`.
+  - Init level (DENTEX FDI, 9 runs = 3 inits × 3 ft seeds, budgets 4/39/96/384): TDI 0.697/0.731/0.747/0.772,
+    slab 0.671/0.716/0.737/0.766 → TDI−slab +0.026/+0.015/+0.010/+0.006, same sign for every TDI init vs pooled slab
+    at ≤96 images. The seed-0 TDI init was the best fine-tuning start (0.702/0.736/0.749/0.774) but inits 1–2 are close.
+    Tufts TDI−slab +0.011/+0.010/+0.002/−0.005. Tufts DR−RO at 384: +0.011 (0.726 vs 0.715).
+  - Mean teacher ≈ real-only: DENTEX FDI 0.211/0.700/0.740/0.781 (RO 0.169/0.696/0.738/0.779).
+  - CycleGAN, 3 seeds: DENTEX teeth 0.541±0.020, FDI 0.118±0.009, numbering 0.108±0.012; +DR 0.519/0.142/0.207;
+    mandible 0.817±0.010. Real→sim (NeBLa direction), 3 models × 3 translators: DR models DENTEX teeth 0.434±0.064,
+    FDI 0.042±0.025 (direct 0.755/0.582); no-DR models teeth 0.411, FDI 0.035; translator-dependent (teeth 0.34–0.53).
+  - stats_paired.py: `compare_init` (inits → seeds → images) + per-init differences, appended after the old sections so
+    their random streams (and the paper's p-values) are unchanged. make_figures: MT arm, CycleGAN seeds, real→sim rows.
