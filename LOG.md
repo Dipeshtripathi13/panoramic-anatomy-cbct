@@ -617,3 +617,9 @@
     FDI 0.042±0.025 (direct 0.755/0.582); no-DR models teeth 0.411, FDI 0.035; translator-dependent (teeth 0.34–0.53).
   - stats_paired.py: `compare_init` (inits → seeds → images) + per-init differences, appended after the old sections so
     their random streams (and the paper's p-values) are unchanged. make_figures: MT arm, CycleGAN seeds, real→sim rows.
+- **History rewrite (2026-11-24, user approved)**: Claude co-author trailers removed from all 68 commits that had one
+  (`git filter-branch --msg-filter`; trees verified identical commit by commit). Every hash changed; old → new in
+  `docs/commit_hash_map.tsv` (run configs before this date log old hashes). Local backup branch `backup/pre-rewrite`
+  keeps the old history — never push it; push only `main`.
+- Sinus real labels (Park et al.): request sent to the corresponding author, no reply; the user does not expect one.
+  Sinus, pulp and incisive canal stay synthetic-only (Limitations unchanged).

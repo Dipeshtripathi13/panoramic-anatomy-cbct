@@ -1,0 +1,74 @@
+# Commit hashes before → after the 2026-11-24 history rewrite (commit messages only: a co-author trailer removed;
+# every tree is identical). Run configs and metrics written before then log the old hash in their "git" field.
+old	new	subject
+2b0514b66f123e1ff71accbe119ac6a367c69bf2	c840f77890e5d298d3c0a66e85b18871e5c27dfc	Repo setup: structure, config, zip-backed IO, CLAUDE.md, LOG.md
+028bfb4bbdbda5e7dcad4e28d4dfb131cc01d933	113a30e59ce9cc8b78e3b39925afd8144d093c8f	Data audit script, CONTACT mask decoder, audit findings in LOG
+f199907d5d5df74da0e3e9793197ed307103c581	4f55e834f6087e55adeae920c4784ea1ed452ee6	Orientation check: TF3 is RPI; flip i,k to LPS (official Ditto flip gives LAI)
+d1a2e40a3d22f1dc792ad64127f6fb9e83b04d79	9a7f6d89cac1eec82ae424df15a9f1b32df6377e	CONTACT loader: 5 mask encodings, shape-based molar/canal assignment, group overlays
+6f7ba3627615f690d908524b49c7bd73e4e4c992	aafdfe05a2f1c7ddb7c93af8631c3dfdbef8e088	Simulator v0: patient arch, MPR + SimPX Beer-Lambert renderers, multi-label mask projection
+89baf55b8fb1b22bfa50e0cecc0ef132178218ae	588fd53a363dc396fd52b25b5ba22be06d3bcb55	Rotational OPG simulator v1 (TDI, curvature beam), bead-phantom validation, polar arch fit
+e37de5543c9268a738a83a33250cd96259eb622b	3a169e4a431022711b89cbe5915814ba713d1209	Fixed patient/duplicate-group-level splits for TF3, CONTACT, DENTEX
+d1a7d35b4cb189b97b9e8dd5f72c1793871d136e	427a264d761c6a8d9f220c48c1294701bd760347	Domain randomisation factors, FOV/annotation outputs, resumable dataset renderer
+1a0d29b816d7ac35f1223c016bae0a2cc21fed37	2c2cb162ff273b6ef1d92cf7b0a1db3f36dbfbaf	Cluster support: data-root override, CUDA device, Lawrence Slurm scripts and runbook
+418f5a1322269a51a15d10b724c28853bd649be8	cf4d8e0fb5c34108ee5c93d48c10fb50f4b99528	Cluster scripts: real lab path, V100 default, sinfo facts
+780eb8cb0632dded6a2f33e0a0e312a5cbbb2745	826ff964f265841f7e9b0e37e883ba848ecff5fc	LOG: cluster environment ready
+a4f40192db32d9836251ec67b5a54486db069cef	9778c1296e3f433056be0c70fd282b3502bdf9cd	Render speed-up: LUT channel bits, per-volume label cache (bit-identical masks)
+a8ef51a15bfc8f4580b5e358325c31938562c2cf	056df90cf3de54f6ec30fa157dcb7c06eec3257a	Sharded/array rendering, atomic index, paired ablation sampling
+d5c18fb4230f8055eaee60ef50f91ac9570d0781	ad9789d7c47c47b08bd75a0c76aaa4ae41cdb619	QC contact sheet for render sets
+555741e263ed1206849f5d1794b15a61a7e16678	cefc9c49b190b98fb2ce461d6de0bab3eeeaac55	Cluster docs: P100 flag that works
+fc3ba272b8ffbdd38be370dfe7ee9d26a1886bdc	354983297c7a49b9eb1081e4df50096ca3965dd9	Edentulous arch fallback (mandible slab), crest-based ray height, per-volume failure handling
+826a7c8e4e0350824cca952ecccf52dff158c13b	ea2617bc5660df87e68d956944484a521b93ee96	LOG: dataset renders done, QC passed
+79ad0936538dab4910b1570a371d4ea048675182	ecba29d2d7b76c18cdfea8c8850ad45f64d1cbb3	Ablation array job, DENTEX annotation subset + protocol + Label Studio config
+5fb2a4d210cc0a499abc14fa3541dda5d9e84081	3677a1a29a4c9e39a104d94e0f8a1ee18f77475c	Annotation guide sheets; log posterior-arch/canal truncation issue
+f8360c5c374c121a0e174ee50910c110943c492d	a087acd8a5c1f26602d04e6fa5faeceeeb21e341	Decision: no self-annotation; real eval = DENTEX teeth + CONTACT; annotation on hold for an expert
+7817d95aeb3a2ded931b51843c9395fc198bd9e0	d7ec9befaac8f60faa2be373bdfe14cfd373125e	Protocol wording
+e4986978bf99f7c26e508a146f6ebc49486ec59e	9fd19fc86efa8ea28d8910c95b1bc34730e1c459	Arch fit v3: trough centred on teeth+canal radial range (canal coverage 100% in 531/532, teeth >=99.3%)
+ee48e0259c04a7da406f4bd5e2417ddcb0403d3b	28476485564b356c7189aae5fec6bc2fe433ff7e	Training pipeline: synth/real datasets with masked multi-label loss, U-Net, train script, cluster job
+eef789ce740fe1fa8ab13f2579079d8570c02147	98c177e81edc93d86e6c706c2f4cff56290cdff3	train: real_val switch so training can run without DENTEX on disk
+260d8d94e495d81cda5e7ef5dabf3877ce09f37b	ed57789cd6a429d87174d8e3d2164130d029706b	LOG: cluster training smoke test passed
+6a3b3035e7aa7f7956bae47d76197daaf3242051	5dcd259b8d779adf5acefac5012d1891e6adbe39	evaluate.py: test-set evaluation (DENTEX teeth, one per dup group; TF3 nominal) + cluster job
+610307f7904493d217ef2e31170212d41ad4d36b	aca2aea4c56fa3d33470b7aa18270057e625f0a4	Few-shot grid: init_from fine-tuning, fewshot config + cluster array
+3e27feb11036f24a971e84eacd518e661ff57166	c5cde15c0cba5f7207583ef43a40287855ee72fd	LOG: zero-shot run finished, ablation renders complete
+5b78c8f32ac1ff86624558317e290edc4193be5f	9b70ffd848246529319ceef9fcdd018ce714b1eb	LOG wording
+4f5379d28f64428d3bff4ac117a05036101e1379	381e8383e66965589a4a2790e4fdc5b116776756	LOG: zero-shot test results
+61f7dc1b1c9318016f939c6d6dc26194aed14e2c	e60cf1a11a4a8c0ef55074174263ed6293724cc8	evaluate: tooth-level detection / numbering / presence metrics (robust to coarse DENTEX polygons)
+e4f0cda9761e68160d82a0e2e81a72d488589986	090c4e66d40a332bb458289884d3d9869b443c5c	DR ablation training: paired reference (dr_main_v2 v1-4), 9 factor-off runs + test eval
+840ec8ac776c7d4187f340d388e0a9093edf06be	8518e6a3dfcd192a53dc6856f628aa006b8bd36a	collect_results + evaluate_missing: one-table summary of all runs
+94138d777dfa4d5184ca7a0ca071b501a557fd93	3ef6e6cff583f744c55466e4b3617d2833085307	LOG: DR ablation seed-0 results, few-shot validation results
+db5a7cd1c6648e0f74db31e234b03cb7e64d0e62	55be77bb56fb0c58d63e946c2d5b5ed52f67f044	LOG: few-shot test results
+f94e91f17d8cb19b7cf7b76a1a26a9a756414885	af2679889ac5cbd0847947079573dcac2c071e30	Third-molar ROI model + CONTACT test evaluation (crop task, resolution matching, overlap/contact readout)
+57bf1523346bdef32d48685f4483662cc7357a2e	1e795da18b9f09f6ef38c823fbd9f6b7d3a2e8f4	train: refuse to reuse a run folder; evaluate_missing skips crop runs
+2a9d252214d212006ae7def993b06156c7c3e24d	8719fe040eab5ccdbb84fde2cd933f053a6bf844	LOG: 3-seed ablation and few-shot results; CONTACT zero-shot crop results
+2eab50fdd8e1ea8a5307c30fe44ff4c7f49dc462	355a6a6c4850af65d9ecee3dfcf1a9b3559bad9a	Contribution 4: CBCT-derived third-molar/canal contact labels + contact head on the crop model, CONTACT test AUC
+a29f70ac2ed60a2f0ba7f342a3ca7a8dae279b61	086a2fc1c8002cc9c4c79aaeae128c32a5d3a659	LOG: contact_v1 results, CONTACT val/test gap analysis, expert-sign reference
+826c33141633aaa9a30392b401761f5fda1e3fa4	4d70a60a35dd4fc2c9ce30c96df51aace899055d	Contact few-shot grid (real-only vs CBCT-pretrained) on CONTACT
+8bd75b38cd18cf2c6b6e63a8e8e9cd8b9c55f4bb	e52689f93cf8c1525d067ef50bd2283c9cc37d91	Fix: CONTACT training masks misaligned with resolution-matched images (few-shot contact grid invalid, rerun)
+7c7e0cee86601e604088c72cabdc45adac156026	36a1cece19ad31994317cd7958df1d860c345535	Contact few-shot v2 results; contact_mm configurable for threshold sensitivity
+bbed50707dcb6837330d14fe44a70a1f8d05cbce	7d72cb84eb95e080a604fac6280d30fd6edd4f6c	LOG: contact threshold sensitivity (0.52 mm best; looser worse)
+369d56b071bfbd341657f676aa4698967f366908	277ed61674c8aef4ce22e5fb24606bdcc0a09833	CycleGAN baseline: unpaired synth→DENTEX translation + segmentation on translated renders
+06a862212e6947b053c72861792b168556cbb157	68df7d47181444146c4329060881fd8a629107e3	LOG: CycleGAN baseline results; contact few-shot 3 seeds
+42fe1d12390416c68cc16f62d0bb0a5dc95369a8	d5f0ae043fc5e29d0f3b711e1abb30de1625ae52	DR range overrides; follow-up experiments: narrower metal range, stronger image-level DR, combination
+98a157e12958d114ed87a24a97215336f28b24db	5c89b9fa23aa85fe8f718a001fd67b78e6fc05eb	Results draft + reproducible figures/tables script
+cc71e14305e96390c43e7197aeb2206c50670740	7fcca90ad3ad3edd9175f6f47935318a7010997e	Follow-up DR results: metal range + wider image-level ranges (Table F, fig_dr_followup, draft section 6)
+2747c0305eee4001bfa1570e7f43de02a6f27f69	0c51bbaeadfa687dd6acd9a120b3ff6bb4d1365b	seg_v2: full-schedule retrain with retuned DR ranges + seg_v1 extra seeds
+55a661eca9a41c1c2e4db407d89b1166b176a7a8	ea0c284fff0523c979202f8a7a1acd1dac60e935	seg_v2 vs seg_v1 (3 seeds): Table G, draft sections 1 and 6
+a8296ec06dd0efc471592f02da6220852c7eda33	a7b500190359b20094ca8be4d67375c53fd3ff30	crop_v2: CONTACT crop model with the seg_v2 DR recipe; dr_overrides for synthetic crops
+b20e83c093622d24dd5fd4cb13211c5ceeed0d8d	c113a6f6e452a6bb9cdb448bda48d03a17891a9e	crop_v2 vs crop_v1 (3 seeds): Table H; retuned DR hurts real canal; draft sections 5-6
+c0b935891c47f33ab0b8c6928ac1851f11c10161	9593321ac0b9ed92593e2d6325fa6904610e0346	Full paper draft: abstract, introduction, related work, methods, experiments, results, discussion, references
+ae92a4994909470b8be5b685eb065cd3d2b98878	0e62059201e004e44038d8c1a3285d2dd58f8ed7	Reviewer baselines (retuned real-only, no-DR nominal) + val_every; paper: 3-seed headline, narrower contribution 1
+fe6224816c23e021d4e783a8718b69ae1390e016	d4e877f3be5e469a89f44af65c7cb12c68df1262	Reviewer baselines: retuned real-only + no-randomization; few-shot claims revised in the paper
+4a388668555dac832cebb701fea0e3c3d50e3094	b91be458a10f9848004a5bc3d48e29eabdb43b4d	Contact few-shot: retuned real-only arm (check of the low-data advantage)
+8adbddaf95078c7cee88067f6db785c52cd262f3	50992a25b8f766c207215b75c3b33a3922094d37	Contact few-shot: tuned real-only arm replaces the old one; contact claims revised
+d456a8bba0ff8ad4d23aee5195a266af9967c544	c11141efe90f5bc83795c54153c2ac6c71bf1719	Long-schedule sim→real arms (DENTEX + CONTACT) to match the tuned real-only budget
+9beb87d6e22bcd17a410e8f1971efbd5bbad9fb4	5a06f386d36589259463b03f10e2ce5fbda4bb97	Long-schedule sim→real check: DENTEX unchanged; CONTACT uses the matched lr 1e-3 schedule; Table 11
+efe5e8f01778dfa681d85069acc275f133168b6f	2693468d52fdfba0fee5124e8dda46941982969a	Tighter Slurm time limits (faster backfill)
+bddb9ff5972b30241943118c5602b5fe8aa480a0	4878843bba4cee4802bd9706271d7512c366d875	CBM manuscript in elsarticle LaTeX: author details, declarations, Fig. 1 simulator overview, polished figures
+a6fced5ecea459bf5ca23842a37a368b6e7f190e	0455b53e1d9e5b2a671f6c60740dd951c1dcde29	Manuscript: remove ethics and generative-AI statements
+a78c3f5dc0180affe5a5f79503b536144aaf9522	0a99548f2bbb52889b2c5b209ef3c22d47c176bc	Reviewer round 1: contact reframing, test-set disclosures, validation ablation, paired hierarchical bootstrap
+1463d22e847f621f5378957898590aa4ed6f5f00	5e4bc88f2ce266a8e54778451e6b812f8907d8b8	Reviewer round 1 experiments: curved-slab baseline, SimCLR in-domain SSL baseline, mandible external test
+280c661407bca319ca655c8e1c1edbc736fac169	01526786ca3f6d917ce6d3287205a6d4b97d39ac	Release prep: README, MIT licence, repo-relative data root, mandible sync target
+8dfb34f3eb42fc1d9d267c1b4142623904aac151	e258e7cddb406e51a24a2c3abc9ea5ae4b567447	Tufts external test: evaluation script, cluster mode, sync target
+a4830b6741cfd4dcf6c6ac02d907b84764617290	fe3fdec7b0bfed06cd26f9a04eeacdd8766d990a	Reviewer round 1 results: curved-slab and SSL baselines, Tufts and mandible external tests
+69bcfa0147ec6c65db7585b9683c489ae391c809	dcdb22b5413f0dec9a1c4341293a861c23cff4d6	Reviewer round 2: seed-confound disclosure, text fixes, supplement, multi-init/mean-teacher/real-to-sim experiments
+c0a1f7a597d5e377ce3eb5adb084c1604ff22ac0	c74b6a787238fb8660cc34c7b7dba13d3a162fad	Reviewer round 2b: supervised mandible CV reference, CycleGAN seeds, per-translator real-to-sim
+c9a855b4ce2b70bc92304c9b8697fbefa9c277bf	d2bf2d7dce5bc222977a5facad2d318a66adc5ab	Reviewer round 2 results: three initialisations, mean teacher, CycleGAN seeds, real-to-sim; mandcv branch fix
