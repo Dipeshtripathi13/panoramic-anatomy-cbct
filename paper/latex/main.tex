@@ -55,7 +55,7 @@ radiographic signs; with 44 or more real crops, real-only training is as good.
 \item Panoramic simulator projects overlapping labels from labelled CBCT
 \item Trained only on simulated panoramics, models number teeth on two real datasets
 \item Four real labels plus simulation match real-only training on about 40 images
-\item Randomization drives transfer; rotational geometry helps tooth identity
+\item Randomizing image formation, not modelling rotational geometry, drives transfer
 \item A weak contact signal is learned from CBCT geometry without real contact labels
 \end{highlights}
 
@@ -516,19 +516,19 @@ are straight-edged and include interproximal gaps. Canals and sinus are predicte
 \end{figure}
 
 \subsection{Few-shot: simulation replaces most labels when labels are scarce}
-Simulation pretraining helps most when real labels are scarce (Table~\ref{tab:fewdentex}, Fig.~\ref{fig:fewdentex}).
-With four labelled images, \sr\ reaches an FDI Dice of \pmsd{0.702}{0.006} and a numbering accuracy of
-\pmsd{0.933}{0.006}. The tuned real-only model reaches \pmsd{0.169}{0.042} and \pmsd{0.454}{0.073} on the same images.
-Real-only training needs about ten times more labels to catch up: with 39 images it reaches an FDI Dice of 0.696 and a
-numbering accuracy of 0.923, close to what \sr\ achieves with four. With 20 images \sr\ is still clearly ahead (FDI 0.720
-vs.\ 0.620, numbering 0.935 vs.\ 0.869). The paired bootstrap supports the advantage on both measures up to 39 images
-($p \leq 0.003$). These results start from the seed-0 zero-shot model, the best of the three. Repeating the
-fine-tuning from the zero-shot models of seeds 1 and 2 changes little (Table~\ref{tab:inits}): over three
-initialisations $\times$ three seeds, \sr\ reaches an FDI Dice of \pmsd{0.697}{0.009} with four images and is ahead of
-real-only training by 0.528 there and by 0.035 [+0.022, +0.046] with 39 images, from every initialisation. At 96 images
-the lead shrinks to 0.009 [+0.000, +0.019] ($p = 0.046$), which we read as at most a small effect. With all 384 images
-real-only training is ahead on FDI Dice (0.779 vs.\ 0.772, $p = 0.015$) and level on numbering. Simulation therefore
-replaces most real labels in the low-data regime but adds little once a moderately sized labelled set exists.
+Simulation pretraining helps most when real labels are scarce (Table~\ref{tab:inits}, Fig.~\ref{fig:fewdentex}).
+We quote the design with three zero-shot initialisations $\times$ three fine-tuning seeds, which separates the effect
+of simulation from that of a particular starting model. With four labelled images, \sr\ reaches an FDI Dice of
+\pmsd{0.697}{0.009} and a numbering accuracy of \pmsd{0.928}{0.005}. The tuned real-only model reaches
+\pmsd{0.169}{0.042} and \pmsd{0.454}{0.073} on the same images. Real-only training needs about ten times more labels to
+catch up: with 39 images it reaches an FDI Dice of 0.696 and a numbering accuracy of 0.923, what \sr\ achieves with
+four. \Sr\ is ahead of real-only training by 0.528 FDI Dice with four images and by 0.035 [+0.022, +0.046] with 39
+($p < 0.001$), from every initialisation, and on numbering up to 39 images ($p \leq 0.044$). At 96 images the lead
+shrinks to 0.009 [+0.000, +0.019] ($p = 0.046$), which we read as at most a small effect. With all 384 images
+real-only training is ahead on FDI Dice (0.779 vs.\ 0.772, $p = 0.015$) and level on numbering. The full sweep over six
+budgets, fine-tuned from the seed-0 model, shows the same picture (Table~\ref{tab:fewdentex}); with 20 images \sr\ is
+still clearly ahead (FDI 0.720 vs.\ 0.620, numbering 0.935 vs.\ 0.869). Simulation therefore replaces most real labels
+in the low-data regime but adds little once a moderately sized labelled set exists.
 Teeth-union Dice behaves similarly but with smaller gaps: the outline of the dentition in DENTEX's annotation style is
 learned from few images, while the identity of each tooth is not.
 
@@ -822,7 +822,8 @@ Over three initialisations, \sr\ is ahead of real-only training by 0.547 FDI Dic
 initialisation. On DENTEX, the source of the labels, real-only training had caught up by 96 images. A model pretrained
 on simulation thus generalises better to a new source than one trained on the same real labels alone, although the
 difference at large budgets is about 0.01 and its numbering is level. The mean teacher is not better than real-only on
-Tufts at any budget.
+Tufts at any budget, and with 39 images it is worse (FDI Dice 0.600 vs.\ 0.629), which suggests that its standard
+settings (consistency weight 0.1, decay 0.99), which we did not tune, are not ideal for this task.
 
 \textbf{Mandible.} The mandible has no real label anywhere in our training. On the 116 panoramics of Abdi and
 Kasaei~\cite{abdi2015}, the zero-shot model segments it with a Dice of \pmsd{0.892}{0.005} over three seeds (seed 0:
@@ -835,8 +836,8 @@ training images per fold, the supervised model reaches \pmsd{0.906}{0.003} from 
 above the zero-shot model, which never saw a mandible label. With five labelled images it reaches
 \pmsd{0.873}{0.020}, below zero-shot, though not significantly. Starting from the zero-shot model helps in both regimes:
 \pmsd{0.918}{0.003} with all images (+0.012 over ImageNet, $p = 0.006$) and \pmsd{0.889}{0.014} with five, level with
-zero-shot. Simulation alone thus gets within about 0.01 Dice of in-domain supervision, and still adds to it when the
-labels are available.
+zero-shot. Five in-domain labels therefore do not improve on what simulation provides without any. Simulation alone
+gets within about 0.01 Dice of in-domain supervision, and still adds to it when the labels are available.
 
 \begin{table}[t]
 \centering\small
@@ -1053,7 +1054,8 @@ models trained on DENTEX labels. CONTACT is distributed as crops without patient
 share patients with training, and its official test set appears harder than its training pool. Most results use three
 seeds, and the seed-to-seed spread is not negligible. The panoramic model we report and use for initialisation is the
 best of three seeds on DENTEX (0.774 against a mean of 0.755), and the crop model we use is the weakest of three on
-CONTACT. The few-shot and contact experiments vary the fine-tuning seed but start from this one model. Training schedules
+CONTACT. The DENTEX few-shot experiments were repeated from all three zero-shot models; the crop and contact
+experiments start from a single crop model, the weakest of three, and vary only the fine-tuning seed. Training schedules
 were tuned per arm, not per label budget; a per-budget search might shift the crossover points somewhat, and on CONTACT
 the \sr\ result depended on the learning rate. The CycleGAN baselines use the standard architecture
 (three seeds), without structure-preserving losses.
