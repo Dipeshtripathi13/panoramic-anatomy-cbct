@@ -40,8 +40,8 @@ panoramics simulated from labelled cone-beam CT (CBCT) transfer to real panorami
 panoramic imaging, applied it to 532 ToothFairy3 volumes, and projected their labels into overlapping masks
 for teeth, pulp, canals, sinus and restorations, with domain randomization of acquisition and image formation. Trained
 on renders alone, a U-Net segments and numbers teeth on real panoramics from two sources (DENTEX: teeth Dice 0.755, 90\%
-of detected teeth correctly numbered; Tufts: 0.770 and 93\%) and segments the mandible (Dice 0.89; trivial baseline
-0.71); without randomization, transfer fails. Fine-tuned on four real images, it matches real-only training, with or
+of detected teeth correctly numbered; Tufts: 0.770 and 93\%) and segments the mandible (Dice 0.89; trivial
+0.71, supervised in-domain 0.91); without randomization, transfer fails. Fine-tuned on four real images, it matches real-only training, with or
 without self- or semi-supervised use of unlabelled images, on about ten times as many labels; this advantage disappears at about
 100 labelled images. A paired per-factor ablation shows that randomizing image noise and processing governs transfer,
 and a simpler curved-slab projection with the same randomization transfers equally well zero-shot: what matters is
@@ -224,6 +224,12 @@ images and 82 with primary teeth, for which the model has no channels. The \text
 Kasaei~\cite{abdi2015,abdi2020data} contains 116 panoramics in which two dentists each segmented the mandible. Both are
 evaluated with exactly the DENTEX protocol: the same fixed framing crop, intensity normalisation and canvas, with the
 ground truth cropped and resized identically. Condyles and rami outside the crop are therefore not scored.
+As a supervised reference for the mandible, we train on the Abdi set itself with five-fold cross-validation (fixed
+folds; every image is tested once). Each fold trains a single-output U-Net on the labels of the first dentist, using
+either all ${\sim}$93 training images of the other four folds or 5 of them, starting either from ImageNet or from our
+zero-shot model (seed $s$ for training seed $s$, three seeds). All runs use the same schedule (AdamW, learning rate
+$10^{-3}$, 3,000 steps, batch 8, random crops, flips and intensity jitter) and keep the last checkpoint, so nothing is
+selected on the test fold. Dice is measured as for the zero-shot models.
 
 All datasets are used under their non-commercial research licences or data-use agreements.
 
@@ -824,12 +830,21 @@ Kasaei~\cite{abdi2015}, the zero-shot model segments it with a Dice of \pmsd{0.8
 (0.714) and the agreement of the two dentists (0.987). Without randomization the result depends on the seed
 (\pmsd{0.590}{0.310}); the CycleGAN models reach \pmsd{0.817}{0.010}.
 
+A model trained on the mandible set's own labels shows how good 0.892 is. With cross-validation on all ${\sim}$93
+training images per fold, the supervised model reaches \pmsd{0.906}{0.003} from ImageNet, only 0.014 [+0.001, +0.026]
+above the zero-shot model, which never saw a mandible label. With five labelled images it reaches
+\pmsd{0.873}{0.020}, below zero-shot, though not significantly. Starting from the zero-shot model helps in both regimes:
+\pmsd{0.918}{0.003} with all images (+0.012 over ImageNet, $p = 0.006$) and \pmsd{0.889}{0.014} with five, level with
+zero-shot. Simulation alone thus gets within about 0.01 Dice of in-domain supervision, and still adds to it when the
+labels are available.
+
 \begin{table}[t]
 \centering\small
 \caption{Zero-shot results by source of training images on DENTEX and on the two external test sets, mean $\pm$ sd over
 three seeds. Real$\to$sim: real test images translated into the simulator's style by each of three CycleGANs and
 segmented by the three zero-shot models (9 runs). No model was trained, tuned or selected on Tufts or the mandible set.
-Mandible references: all-foreground prediction 0.714, inter-rater agreement 0.987.}
+Mandible references: all-foreground prediction 0.714, supervised in-domain model (5-fold
+cross-validation, ImageNet initialisation) 0.906, inter-rater agreement 0.987.}
 \label{tab:external}
 \setlength{\tabcolsep}{4pt}
 \begin{adjustbox}{max width=\linewidth}
@@ -1032,7 +1047,7 @@ inside the simulator keeps the labels correct by construction.
 the third molar, canal and contact (CONTACT). The
 sinus, pulp and incisive canal are evaluated on synthetic data only: we found no publicly released expert panoramic labels for
 them, and no dental radiologist was available to annotate them for this study. The mandible test is easy in one
-respect: the mandible fills much of the framed region, so even a trivial prediction scores a Dice of 0.71. DENTEX tooth
+respect: the mandible fills much of the framed region, so even a trivial prediction scores a Dice of 0.71, and in-domain supervision reaches 0.91. DENTEX tooth
 polygons are coarse, and Dice rewards learning their style, which favours
 models trained on DENTEX labels. CONTACT is distributed as crops without patient identifiers, so our validation split may
 share patients with training, and its official test set appears harder than its training pool. Most results use three

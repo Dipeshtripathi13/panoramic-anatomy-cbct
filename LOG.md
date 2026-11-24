@@ -623,3 +623,10 @@
   keeps the old history — never push it; push only `main`.
 - Sinus real labels (Park et al.): request sent to the corresponding author, no reply; the user does not expect one.
   Sinus, pulp and incisive canal stay synthetic-only (Limitations unchanged).
+- **Round 2c results (2026-11-24)**: mandible CV (60 runs) and seg_cyclegan_dr Tufts/mandible eval back.
+  - Mandible 5-fold CV, pooled test folds (116 images), mean ± sd over 3 seeds: ImageNet all ~93 imgs 0.906±0.003,
+    ImageNet 5 imgs 0.873±0.020, TDI init all 0.918±0.003, TDI init 5 imgs 0.889±0.014; zero-shot 0.892±0.005.
+    Supervised − zero-shot +0.014 [+0.001, +0.026] (p=0.036); TDI init − ImageNet +0.012 with all images (p=0.006), +0.017 n.s. with 5.
+    → zero-shot within ~0.01 of in-domain supervision; added to Methods (data section), Results, abstract, table caption.
+  - CycleGAN + DR, 3 seeds now complete: Tufts teeth 0.519±0.025, FDI 0.176±0.030, numbering 0.379±0.047; mandible 0.849±0.012.
+  - stats_paired.py: mandible CV section appended (load_mandcv).

@@ -49,6 +49,16 @@ def load_mandible(runs: list[str]) -> list[dict]:
     return _load(runs, "eval_mandible_best", "id")
 
 
+def load_mandcv(arm: str, n: int) -> list[dict]:
+    """Supervised 5-fold CV on the Abdi set (train_mandible_cv.py): the five test folds of each seed pooled, by image."""
+    out = []
+    for s in range(3):
+        df = pd.concat([pd.read_csv(RUNS / f"mandcv_{arm}_n{n}_s{s}_f{f}" / "per_image.csv") for f in range(5)])
+        df = df.set_index("id").sort_index()
+        out.append({"_index": df.index.to_numpy(), **{c: df[c].to_numpy(float) for c in df.columns}})
+    return out
+
+
 def fdi(d, idx):
     return np.nanmean(d["dice_fdi_mean"][idx])
 
@@ -205,6 +215,18 @@ def main() -> None:
         init_table(f"{lab}, 3 inits × 3 seeds: sim→real − SSL real-only", loader, "sim2real", "ssl_realonly")
         init_table(f"{lab}, 3 inits × 3 seeds: sim→real − mean teacher", loader, "sim2real", "realonly_mt")
         init_table(f"{lab}: mean teacher − real-only", loader, "realonly_mt", "realonly_v2")
+
+    lines += ["", "## Mandible (Abdi, 116 images): supervised 5-fold CV reference vs zero-shot (3 seeds each)",
+              "| Comparison | Mandible Dice |", "|---|---|"]
+    zs_m = load_mandible(zs)
+    cvs = {(a, n): load_mandcv(a, n) for a in ("imagenet", "tdi") for n in (0, 5)}
+    for lab, a, b in [("CV all images: TDI init − ImageNet init", cvs["tdi", 0], cvs["imagenet", 0]),
+                      ("CV 5 images: TDI init − ImageNet init", cvs["tdi", 5], cvs["imagenet", 5]),
+                      ("CV all images, ImageNet − zero-shot", cvs["imagenet", 0], zs_m),
+                      ("CV all images, TDI init − zero-shot", cvs["tdi", 0], zs_m),
+                      ("CV 5 images, ImageNet − zero-shot", cvs["imagenet", 5], zs_m),
+                      ("CV 5 images, TDI init − zero-shot", cvs["tdi", 5], zs_m)]:
+        lines.append(f"| {lab} | {fmt(compare(a, b, mandible, rng))} |")
 
     OUT.write_text("\n".join(lines) + "\n")
     print("\n".join(lines))
