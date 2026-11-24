@@ -2,6 +2,7 @@
 
 Code for *Learning panoramic anatomy from CBCT: simulation and domain randomization for zero- and
 few-shot segmentation of dental panoramic radiographs* (Dipesh Tripathi, University of South Dakota).
+Repository: https://github.com/Dipeshtripathi13/panoramic-anatomy-cbct
 
 A rotational panoramic (orthopantomograph) simulator renders panoramics from labelled cone-beam CT (ToothFairy3) and
 projects the 3D labels into overlapping 2D masks: 32 teeth by FDI number, pulp, both inferior alveolar canals, incisive
